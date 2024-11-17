@@ -1,6 +1,7 @@
 import os
 import time
 import random
+import math
 
 # --------------------- Configurable Parameters ---------------------
 
@@ -29,19 +30,11 @@ PLAYER_SYMBOL = 'P'
 END_SYMBOL = 'E'
 DRONE_SYMBOLS = ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M']
 
-# Directions for movement
-DIRECTIONS = [
-    (-1, 0),  # Up
-    (1, 0),   # Down
-    (0, -1),  # Left
-    (0, 1)    # Right
-]
-
 def clear_screen():
     """Clear the terminal screen for better readability."""
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def is_adjacent_to_player_start(pos, distance=2):
+def is_adjacent_to_player_start(pos, distance=1):
     """
     Check if a position is within a certain distance from the player's starting position.
 
@@ -49,59 +42,98 @@ def is_adjacent_to_player_start(pos, distance=2):
     :param distance: Manhattan distance threshold.
     :return: Boolean indicating if position is within the threshold.
     """
-    return abs(pos[0] - PLAYER_START_POS[0]) + abs(pos[1] - PLAYER_START_POS[1]) < distance
+    return abs(pos[0] - PLAYER_START_POS[0]) + abs(pos[1] - PLAYER_START_POS[1]) <= distance
 
 class Drone:
-    def __init__(self, symbol, start_pos, grid_size):
+    def __init__(self, symbol, sector):
         """
         Initialize a drone.
 
         :param symbol: Single character representing the drone.
-        :param start_pos: Starting position of the drone.
-        :param grid_size: Size of the grid.
+        :param sector: Dictionary with 'start_row', 'end_row', 'start_col', 'end_col' defining the sector.
         """
         self.symbol = symbol
-        self.position = start_pos
-        self.grid_size = grid_size
-        self.visited = set()
-        self.visited.add(start_pos)
+        self.sector = sector
+        self.patrol_route = self.generate_patrol_route()
+        self.route_index = 0
+        self.position = self.patrol_route[self.route_index]
 
-    def move(self, occupied_positions):
+    def generate_patrol_route(self):
         """
-        Move the drone to a random adjacent square, avoiding occupied positions.
+        Generate a patrol route that covers all squares in the sector without repeating until all squares are visited.
 
-        :param occupied_positions: Set of positions currently occupied by other drones.
+        :return: List of positions representing the patrol route.
         """
-        possible_moves = []
+        route = []
+        sr = self.sector['start_row']
+        er = self.sector['end_row']
+        sc = self.sector['start_col']
+        ec = self.sector['end_col']
 
-        for dr, dc in DIRECTIONS:
-            new_r = self.position[0] + dr
-            new_c = self.position[1] + dc
+        for r in range(sr, er):
+            cols = range(sc, ec)
+            if (r - sr) % 2 == 1:
+                cols = reversed(cols)
+            for c in cols:
+                route.append((r, c))
 
-            # Check bounds
-            if 0 <= new_r < self.grid_size and 0 <= new_c < self.grid_size:
-                new_pos = (new_r, new_c)
-                if new_pos not in occupied_positions:
-                    possible_moves.append(new_pos)
+        return route
 
-        # If there are possible moves, choose one
-        if possible_moves:
-            # Prioritize unvisited squares
-            unvisited_moves = [pos for pos in possible_moves if pos not in self.visited]
-            if unvisited_moves:
-                next_pos = random.choice(unvisited_moves)
-            else:
-                next_pos = random.choice(possible_moves)
+    def move(self):
+        """
+        Move the drone along its patrol route.
+        """
+        self.route_index = (self.route_index + 1) % len(self.patrol_route)
+        self.position = self.patrol_route[self.route_index]
 
-            self.position = next_pos
-            self.visited.add(next_pos)
-        else:
-            # No possible moves; drone stays in place
-            pass
+def compute_sectors(grid_size, num_drones):
+    """
+    Compute the sectors for each drone.
 
-        # Reset visited squares if all have been visited
-        if len(self.visited) == self.grid_size * self.grid_size:
-            self.visited = set([self.position])
+    :param grid_size: Size of the grid.
+    :param num_drones: Number of drones.
+    :return: List of sector dictionaries.
+    """
+    # Determine number of sectors along rows and columns
+    sectors_per_row = int(math.sqrt(num_drones))
+    while num_drones % sectors_per_row != 0 and sectors_per_row > 1:
+        sectors_per_row -= 1
+    sectors_per_col = num_drones // sectors_per_row
+
+    # Adjust if necessary
+    if sectors_per_row * sectors_per_col < num_drones:
+        sectors_per_col += 1
+
+    sector_height = grid_size // sectors_per_row
+    sector_width = grid_size // sectors_per_col
+
+    sectors = []
+    drone_index = 0
+
+    for i in range(sectors_per_row):
+        for j in range(sectors_per_col):
+            if drone_index >= num_drones:
+                break
+            start_row = i * sector_height
+            end_row = (i + 1) * sector_height if (i + 1) * sector_height <= grid_size else grid_size
+            start_col = j * sector_width
+            end_col = (j + 1) * sector_width if (j + 1) * sector_width <= grid_size else grid_size
+
+            # Adjust for any leftover rows or columns
+            if i == sectors_per_row - 1:
+                end_row = grid_size
+            if j == sectors_per_col - 1:
+                end_col = grid_size
+
+            sectors.append({
+                'start_row': start_row,
+                'end_row': end_row,
+                'start_col': start_col,
+                'end_col': end_col
+            })
+            drone_index += 1
+
+    return sectors
 
 def initialize_game():
     """
@@ -113,33 +145,28 @@ def initialize_game():
     player_pos = PLAYER_START_POS
     end_pos = END_POS
 
+    # Compute sectors for drones
+    sectors = compute_sectors(GRID_SIZE, NUM_DRONES)
+
     # Initialize drones
     drones = []
-    occupied_positions = set()
-    attempts = 0
-    max_attempts = 1000
-
     for i in range(NUM_DRONES):
         symbol = DRONE_SYMBOLS[i % len(DRONE_SYMBOLS)]
+        sector = sectors[i]
 
-        while attempts < max_attempts:
-            attempts += 1
-            r = random.randint(0, GRID_SIZE - 1)
-            c = random.randint(0, GRID_SIZE - 1)
-            start_pos = (r, c)
+        # Start each drone at the beginning of its patrol route
+        drone = Drone(symbol, sector)
 
-            if start_pos == player_pos or is_adjacent_to_player_start(start_pos, distance=2):
-                continue  # Avoid starting near the player
-            if start_pos in occupied_positions:
-                continue  # Avoid starting on another drone
+        # Ensure drones do not start at the player's position or adjacent to it
+        if drone.position == player_pos or is_adjacent_to_player_start(drone.position):
+            # Shift the drone's starting position along its patrol route
+            for idx, pos in enumerate(drone.patrol_route):
+                if pos != player_pos and not is_adjacent_to_player_start(pos):
+                    drone.route_index = idx
+                    drone.position = pos
+                    break
 
-            occupied_positions.add(start_pos)
-            drone = Drone(symbol, start_pos, GRID_SIZE)
-            drones.append(drone)
-            break
-        else:
-            print("Could not place all drones. Consider reducing the number of drones or increasing the grid size.")
-            exit()
+        drones.append(drone)
 
     return player_pos, end_pos, drones
 
@@ -224,7 +251,7 @@ def is_collision(player_pos, drones):
 
 def main():
     """Main game loop."""
-    print("Welcome to 'Pall of the Eye' - Drone Patrol Edition!")
+    print("Welcome to 'Pall of the Eye' - Sector Patrol Edition!")
 
     # Initialize the game
     player_pos, end_pos, drones = initialize_game()
@@ -264,11 +291,8 @@ def main():
             return
 
         # Move drones
-        occupied_positions = set(drone.position for drone in drones)
         for drone in drones:
-            occupied_positions.discard(drone.position)  # Remove current position
-            drone.move(occupied_positions)
-            occupied_positions.add(drone.position)  # Add new position
+            drone.move()
 
         # Check for collision after drones' move
         if is_collision(player_pos, drones):
