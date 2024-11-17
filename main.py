@@ -9,15 +9,15 @@ GRID_SIZE = 10
 EMPTY_SYMBOL = '.'
 PLAYER_SYMBOL = 'P'
 END_SYMBOL = 'E'
-ENEMY_SYMBOLS = ['X', 'Y', 'Z', 'W', 'V', 'Q', 'R', 'S', 'T', 'U']  # Extend as needed
+ENEMY_SYMBOLS = ['X', 'Y', 'Z', 'W', 'V', 'Q', 'R', 'S', 'T', 'U']
 
 # Directions for player movement
 MOVES = {
-    'w': (-1, 0),  # Up
-    's': (1, 0),   # Down
-    'a': (0, -1),  # Left
-    'd': (0, 1),   # Right
-    'f': (0, 0)    # Stay
+    'w': (-1, 0),   # Up
+    's': (1, 0),    # Down
+    'a': (0, -1),   # Left
+    'd': (0, 1),    # Right
+    'f': (0, 0)     # Stay
 }
 
 def clear_screen():
@@ -30,143 +30,181 @@ def is_adjacent_to_player_start(pos):
     return pos in adjacent_positions
 
 class Enemy:
-    def __init__(self, symbol, pattern, adaptive=False):
+    def __init__(self, symbol, hubs, paths_between_hubs, path_concentration):
         """
         Initialize an enemy.
 
         :param symbol: Single character representing the enemy
-        :param pattern: List of (row, col) tuples defining the movement pattern
-        :param adaptive: Boolean indicating if the enemy adapts to the player's position
+        :param hubs: List of hubs assigned to the enemy
+        :param paths_between_hubs: Shared dictionary of paths between hubs
+        :param path_concentration: Parameter controlling path concentration (0 to 1)
         """
         self.symbol = symbol
-        self.pattern = pattern
-        self.adaptive = adaptive
-        self.current_step = 0
-        self.position = self.pattern[self.current_step]
+        self.hubs = hubs
+        self.paths_between_hubs = paths_between_hubs
+        self.path_concentration = path_concentration
+        self.position = random.choice(hubs)
+        self.current_hub = self.position
+        self.next_hub = None
+        self.path = []
+        self.stay_duration = random.randint(1, 3)
+        self.generate_movement_plan()
 
-    def move(self, player_pos=None):
-        """
-        Move the enemy based on its pattern or adaptively towards the player.
-
-        :param player_pos: Tuple (row, col) of the player's current position
-        """
-        if self.adaptive and player_pos:
-            self.move_towards_player(player_pos)
+    def generate_movement_plan(self):
+        # Determine the next hub to move to
+        if len(self.hubs) > 1:
+            self.next_hub = random.choice([hub for hub in self.hubs if hub != self.current_hub])
         else:
-            # Advance to the next step in the pattern
-            next_step = (self.current_step + 1) % len(self.pattern)
-            next_position = self.pattern[next_step]
-            # Ensure enemy doesn't move into or adjacent to (0, 0)
-            if next_position == (0, 0) or is_adjacent_to_player_start(next_position):
-                # Skip this position and advance to the next one
-                next_step = (next_step + 1) % len(self.pattern)
-                next_position = self.pattern[next_step]
-            self.current_step = next_step
-            self.position = next_position
+            self.next_hub = self.current_hub  # Only one hub assigned
+        # Get the path between current hub and next hub
+        path_key = (self.current_hub, self.next_hub)
+        if path_key in self.paths_between_hubs:
+            self.path = self.paths_between_hubs[path_key].copy()
+        else:
+            # Generate path
+            path = generate_path_between_hubs(self.current_hub, self.next_hub)
+            # With probability path_concentration, use an existing path if available
+            if random.random() < self.path_concentration:
+                # Check if there is an existing path between these hubs in reverse
+                reverse_key = (self.next_hub, self.current_hub)
+                if reverse_key in self.paths_between_hubs:
+                    path = self.paths_between_hubs[reverse_key][::-1]
+            # Store the path
+            self.paths_between_hubs[path_key] = path
+            self.path = path.copy()
+        # Set stay duration at hub
+        self.stay_duration = random.randint(1, 3)
 
-    def move_towards_player(self, player_pos):
-        """
-        Move one square towards the player's position, avoiding (0, 0) and its adjacent squares.
+    def move(self):
+        if self.stay_duration > 0:
+            # Stay at current hub
+            self.stay_duration -= 1
+            return
+        if self.path:
+            # Move along the path
+            self.position = self.path.pop(0)
+            if not self.path:
+                # Reached next hub
+                self.current_hub = self.next_hub
+                self.generate_movement_plan()
+        else:
+            # No path, generate new movement plan
+            self.generate_movement_plan()
 
-        :param player_pos: Tuple (row, col) of the player's current position
-        """
-        r, c = self.position
-        pr, pc = player_pos
-        dr = pr - r
-        dc = pc - c
+def generate_path_between_hubs(hub1, hub2):
+    """
+    Generate a path between two hubs.
 
-        # Determine the direction to move (one square)
+    :param hub1: Starting hub (position)
+    :param hub2: Ending hub (position)
+    :return: List of positions representing the path
+    """
+    path = []
+    current_pos = hub1
+    while current_pos != hub2:
+        r1, c1 = current_pos
+        r2, c2 = hub2
+        dr = r2 - r1
+        dc = c2 - c1
         move_r = (1 if dr > 0 else -1) if dr != 0 else 0
         move_c = (1 if dc > 0 else -1) if dc != 0 else 0
+        new_r = r1 + move_r
+        new_c = c1 + move_c
+        current_pos = (new_r, new_c)
+        path.append(current_pos)
+    return path
 
-        # Generate potential moves
-        potential_moves = [
-            (r + move_r, c + move_c),   # Diagonal towards player
-            (r + move_r, c),            # Vertical towards player
-            (r, c + move_c),            # Horizontal towards player
-            (r - move_r, c - move_c),   # Diagonal away from player
-            (r - move_r, c),            # Vertical away from player
-            (r, c - move_c),            # Horizontal away from player
-        ]
-
-        for new_r, new_c in potential_moves:
-            # Ensure the enemy stays within the grid bounds and avoids (0,0) and adjacent squares
-            if 0 <= new_r < GRID_SIZE and 0 <= new_c < GRID_SIZE:
-                if (new_r, new_c) != (0, 0) and not is_adjacent_to_player_start((new_r, new_c)):
-                    self.position = (new_r, new_c)
-                    return
-
-        # If no valid move, stay in place
-        self.position = (r, c)
-
-def initialize_game(complexity_level):
+def assign_hubs_to_enemy(hubs, num_hubs, hub_sharedness, hub_assignments):
     """
-    Initialize the game state based on the selected complexity level.
+    Assign hubs to an enemy, considering hub sharedness.
 
-    :param complexity_level: Integer from 1 to 10 representing difficulty
+    :param hubs: List of all hubs
+    :param num_hubs: Number of hubs to assign to the enemy
+    :param hub_sharedness: Parameter controlling hub sharedness (0 to 1)
+    :param hub_assignments: Dictionary mapping hubs to the number of enemies assigned
+    :return: List of hubs assigned to the enemy
+    """
+    enemy_hubs = []
+    for _ in range(num_hubs):
+        # Compute weights for hubs
+        hub_weights = []
+        for hub in hubs:
+            if hub in enemy_hubs:
+                continue  # Already assigned to this enemy
+            if hub in hub_assignments and hub_assignments[hub] > 0:
+                weight = hub_sharedness
+            else:
+                weight = 1 - hub_sharedness
+            hub_weights.append((hub, weight))
+        if not hub_weights:
+            break  # No more hubs to assign
+        # Normalize weights
+        total_weight = sum(weight for hub, weight in hub_weights)
+        if total_weight == 0:
+            break
+        # Choose a hub based on weights
+        rand_val = random.uniform(0, total_weight)
+        cumulative_weight = 0
+        for hub, weight in hub_weights:
+            cumulative_weight += weight
+            if rand_val <= cumulative_weight:
+                enemy_hubs.append(hub)
+                if hub in hub_assignments:
+                    hub_assignments[hub] += 1
+                else:
+                    hub_assignments[hub] = 1
+                break
+    return enemy_hubs
+
+def initialize_game(num_enemies, mean_hubs, std_hubs, hub_sharedness, path_concentration):
+    """
+    Initialize the game state based on the selected parameters.
+
+    :param num_enemies: Number of enemies
+    :param mean_hubs: Mean number of hubs per enemy
+    :param std_hubs: Standard deviation of hubs per enemy
+    :param hub_sharedness: Parameter controlling hub sharedness (0 to 1)
+    :param path_concentration: Parameter controlling path concentration (0 to 1)
     :return: Tuple (player_pos, end_pos, enemies)
     """
     # Initialize player and end positions
     player_pos = (0, 0)  # Top-left corner
     end_pos = (GRID_SIZE - 1, GRID_SIZE - 1)  # Bottom-right corner
 
-    # Determine the number of enemies based on complexity level
-    num_enemies = complexity_level  # Simple scaling; adjust as needed
+    # Generate hubs
+    total_hubs = max(5, int(num_enemies * mean_hubs * 0.7))
+    hubs = []
+    attempts = 0
+    while len(hubs) < total_hubs and attempts < 1000:
+        attempts += 1
+        r = random.randint(0, GRID_SIZE - 1)
+        c = random.randint(0, GRID_SIZE - 1)
+        pos = (r, c)
+        if pos == player_pos or is_adjacent_to_player_start(pos):
+            continue
+        if pos in hubs:
+            continue
+        hubs.append(pos)
+    if len(hubs) < total_hubs:
+        print("Could not generate enough hubs. Reduce the number of hubs or grid size.")
+        exit()
 
-    # Generate enemies with movement patterns based on complexity level
+    # Assign hubs to enemies
+    hub_assignments = {}
+    paths_between_hubs = {}
     enemies = []
     for i in range(num_enemies):
         symbol = ENEMY_SYMBOLS[i % len(ENEMY_SYMBOLS)]
-        pattern = generate_enemy_pattern(complexity_level)
-        adaptive = complexity_level >= 8 and random.random() < 0.5  # 50% chance of being adaptive at high complexity
-        enemies.append(Enemy(symbol, pattern, adaptive))
+        # Determine number of hubs for this enemy
+        num_hubs = max(2, int(random.gauss(mean_hubs, std_hubs)))
+        num_hubs = min(num_hubs, len(hubs))  # Can't have more hubs than available
+        # Assign hubs to enemy
+        enemy_hubs = assign_hubs_to_enemy(hubs, num_hubs, hub_sharedness, hub_assignments)
+        # Create enemy
+        enemy = Enemy(symbol, enemy_hubs, paths_between_hubs, path_concentration)
+        enemies.append(enemy)
 
     return player_pos, end_pos, enemies
-
-def generate_enemy_pattern(complexity_level):
-    """
-    Generate a movement pattern for an enemy based on complexity level.
-
-    :param complexity_level: Integer from 1 to 10 representing difficulty
-    :return: List of (row, col) tuples
-    """
-    pattern_length = max(4, complexity_level * 2)  # Longer patterns at higher complexity
-    pattern = []
-
-    # Start position (exclude (0,0) and its adjacent squares)
-    while True:
-        r = random.randint(0, GRID_SIZE - 1)
-        c = random.randint(0, GRID_SIZE - 1)
-        if (r, c) != (0, 0) and not is_adjacent_to_player_start((r, c)):
-            break
-    pattern.append((r, c))
-
-    while len(pattern) < pattern_length:
-        # Determine possible moves (only one square in any direction)
-        possible_moves = [(-1, 0), (1, 0), (0, -1), (0, 1),
-                          (-1, -1), (-1, 1), (1, -1), (1, 1)]
-        # At higher complexity levels, prefer diagonal moves
-        if complexity_level >= 5:
-            weighted_moves = possible_moves.copy()
-            # Add more diagonal moves to increase pattern complexity
-            weighted_moves += [(-1, -1), (-1, 1), (1, -1), (1, 1)]
-        else:
-            weighted_moves = possible_moves.copy()
-
-        dr, dc = random.choice(weighted_moves)
-        r_new = pattern[-1][0] + dr
-        c_new = pattern[-1][1] + dc
-
-        # Ensure the enemy stays within the grid bounds and avoids (0,0) and adjacent squares
-        if 0 <= r_new < GRID_SIZE and 0 <= c_new < GRID_SIZE:
-            if (r_new, c_new) != (0, 0) and not is_adjacent_to_player_start((r_new, c_new)):
-                pattern.append((r_new, c_new))
-            else:
-                continue  # Skip positions adjacent to (0,0)
-        else:
-            continue  # Skip out-of-bounds positions
-
-    return pattern
 
 def draw_grid(player_pos, end_pos, enemies):
     """
@@ -187,8 +225,7 @@ def draw_grid(player_pos, end_pos, enemies):
     for enemy in enemies:
         r, c = enemy.position
         if (r, c) == player_pos:
-            # Skip placing enemy here; collision will be handled separately
-            continue
+            continue  # Collision will be handled separately
         if (r, c) in enemy_positions:
             enemy_positions[(r, c)] += 1
         else:
@@ -246,20 +283,57 @@ def main():
     """
     Main game loop.
     """
-    # Get complexity level from user
+    print("Welcome to 'Pall of the Eye'!")
+
+    # Get number of enemies
     while True:
         try:
-            complexity_level = int(input("Enter enemy pattern complexity level (1-10): "))
-            if 1 <= complexity_level <= 10:
+            num_enemies = int(input("Enter number of enemies: "))
+            if num_enemies > 0:
                 break
             else:
-                print("Please enter a number between 1 and 10.")
+                print("Please enter a positive number.")
         except ValueError:
-            print("Invalid input. Please enter a number between 1 and 10.")
+            print("Invalid input. Please enter an integer.")
 
-    player_pos, end_pos, enemies = initialize_game(complexity_level)
+    # Get mean and std dev for hubs per enemy
+    while True:
+        try:
+            mean_hubs = float(input("Enter mean number of hubs per enemy (2-5 recommended): "))
+            std_hubs = float(input("Enter standard deviation for hubs per enemy (0-2 recommended): "))
+            if mean_hubs > 0 and std_hubs >= 0:
+                break
+            else:
+                print("Please enter positive numbers.")
+        except ValueError:
+            print("Invalid input. Please enter numbers.")
+
+    # Get hub sharedness (between 0 and 1)
+    while True:
+        try:
+            hub_sharedness = float(input("Enter hub sharedness (0 to 1): "))
+            if 0 <= hub_sharedness <= 1:
+                break
+            else:
+                print("Please enter a number between 0 and 1.")
+        except ValueError:
+            print("Invalid input. Please enter a number between 0 and 1.")
+
+    # Get path concentration (0 to 1)
+    while True:
+        try:
+            path_concentration = float(input("Enter path concentration (0 to 1): "))
+            if 0 <= path_concentration <= 1:
+                break
+            else:
+                print("Please enter a number between 0 and 1.")
+        except ValueError:
+            print("Invalid input. Please enter a number between 0 and 1.")
+
+    # Initialize the game
+    player_pos, end_pos, enemies = initialize_game(num_enemies, mean_hubs, std_hubs, hub_sharedness, path_concentration)
     turn = 0
-    max_turns = 200  # Increased turn limit for larger grid and complexity
+    max_turns = 200  # Adjust as needed
 
     while turn < max_turns:
         clear_screen()
@@ -294,7 +368,7 @@ def main():
 
         # Move enemies
         for enemy in enemies:
-            enemy.move(player_pos if enemy.adaptive else None)
+            enemy.move()
 
         # Check for collision after enemies' move
         if is_collision(player_pos, enemies):
