@@ -11,19 +11,12 @@ GRID_SIZE = 10  # Size of the grid (10x10)
 PLAYER_START_POS = (0, 0)  # Starting position of the player
 END_POS = (GRID_SIZE - 1, GRID_SIZE - 1)  # End position
 
-# Enemy Configuration
-NUM_ENEMIES = 5  # Total number of enemies
-MEAN_HUBS_PER_ENEMY = 3  # Average number of hubs per enemy
-STD_HUBS_PER_ENEMY = 1  # Standard deviation for hubs per enemy
-HUB_SHAREDNESS = 0.5  # Probability that hubs are shared among enemies (0 to 1)
-PATH_CONCENTRATION = 0.5  # Probability that paths are shared among enemies (0 to 1)
+# Drone Configuration
+NUM_DRONES = 5  # Total number of drones
+DRONE_PATROL_STRATEGY = 'row'  # 'row', 'column', or 'spiral'
 
 # Random Seed for Reproducibility
 RANDOM_SEED = None  # Set to an integer value for reproducible results, e.g., 42
-
-# Stay Duration at Hubs
-MIN_STAY_DURATION = 1  # Minimum turns to stay at a hub
-MAX_STAY_DURATION = 3  # Maximum turns to stay at a hub
 
 # --------------------- End of Configurable Parameters ---------------------
 
@@ -35,7 +28,7 @@ if RANDOM_SEED is not None:
 EMPTY_SYMBOL = '.'
 PLAYER_SYMBOL = 'P'
 END_SYMBOL = 'E'
-ENEMY_SYMBOLS = ['X', 'Y', 'Z', 'W', 'V', 'Q', 'R', 'S', 'T', 'U']
+DRONE_SYMBOLS = ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M']
 
 # Directions for player movement
 MOVES = {
@@ -60,235 +53,152 @@ def is_adjacent_to_player_start(pos, distance=2):
     """
     return abs(pos[0] - PLAYER_START_POS[0]) + abs(pos[1] - PLAYER_START_POS[1]) < distance
 
-class Enemy:
-    def __init__(self, symbol, hubs, paths_between_hubs, path_concentration):
+class Drone:
+    def __init__(self, symbol, start_pos, patrol_route):
         """
-        Initialize an enemy.
+        Initialize a drone.
 
-        :param symbol: Single character representing the enemy.
-        :param hubs: List of hubs assigned to the enemy.
-        :param paths_between_hubs: Shared dictionary of paths between hubs.
-        :param path_concentration: Parameter controlling path concentration (0 to 1).
+        :param symbol: Single character representing the drone.
+        :param start_pos: Starting position of the drone.
+        :param patrol_route: List of positions representing the patrol route.
         """
         self.symbol = symbol
-        self.hubs = hubs
-        self.paths_between_hubs = paths_between_hubs
-        self.path_concentration = path_concentration
-        self.current_hub = random.choice(self.hubs)
-        self.next_hub = None
-        self.path = []
-        self.stay_duration = random.randint(MIN_STAY_DURATION, MAX_STAY_DURATION)
-        self.position = self.current_hub  # Initialize position
-        # Do not generate movement plan immediately
-        # self.generate_movement_plan()
+        self.position = start_pos
+        self.patrol_route = patrol_route
+        self.route_index = 0
 
-    def generate_movement_plan(self):
-        """Determine the next hub and the path to it."""
-        possible_hubs = [hub for hub in self.hubs if hub != self.current_hub]
-        if not possible_hubs:
-            self.next_hub = self.current_hub
-            self.path = []
-            self.stay_duration = random.randint(MIN_STAY_DURATION, MAX_STAY_DURATION)
-            return
+    def move(self, occupied_positions):
+        """
+        Move the drone along its patrol route.
 
-        self.next_hub = random.choice(possible_hubs)
+        :param occupied_positions: Set of positions currently occupied by other drones.
+        """
+        # Calculate next position
+        next_index = (self.route_index + 1) % len(self.patrol_route)
+        next_pos = self.patrol_route[next_index]
 
-        # Determine the path key
-        path_key = (self.current_hub, self.next_hub)
-        reverse_key = (self.next_hub, self.current_hub)
+        # Ensure the next position is not occupied
+        if next_pos not in occupied_positions:
+            self.position = next_pos
+            self.route_index = next_index
+        # If next position is occupied, drone stays in place this turn
 
-        # Check if path already exists (for shared paths)
-        if path_key in self.paths_between_hubs:
-            self.path = self.paths_between_hubs[path_key].copy()
-        elif reverse_key in self.paths_between_hubs and random.random() < self.path_concentration:
-            # Use the reverse of an existing path
-            self.path = self.paths_between_hubs[reverse_key][::-1].copy()
-            self.paths_between_hubs[path_key] = self.paths_between_hubs[reverse_key].copy()
-        else:
-            # Generate a new path
-            self.path = generate_path_between_hubs(self.current_hub, self.next_hub)
-            self.paths_between_hubs[path_key] = self.path.copy()
-
-        # Set stay duration at the new hub (will be set when the hub is reached)
-
-    def move(self):
-        """Move the enemy along the path or stay at the hub."""
-        if self.stay_duration > 0:
-            # Stay at the current hub
-            self.stay_duration -= 1
-            if self.stay_duration == 0:
-                # Generate movement plan when ready to move
-                self.generate_movement_plan()
-            return
-
-        if self.path:
-            # Move along the path
-            self.position = self.path.pop(0)
-            if not self.path:
-                # Reached the next hub, set stay duration
-                self.current_hub = self.next_hub
-                self.stay_duration = random.randint(MIN_STAY_DURATION, MAX_STAY_DURATION)
-        else:
-            # No movement path; wait at current position
-            pass
-
-def generate_path_between_hubs(hub1, hub2):
+def generate_patrol_routes(strategy):
     """
-    Generate a path between two hubs using cardinal directions (no diagonal moves).
+    Generate patrol routes for drones based on the selected strategy.
 
-    :param hub1: Starting hub (row, col).
-    :param hub2: Ending hub (row, col).
-    :return: List of (row, col) tuples representing the path.
+    :param strategy: 'row', 'column', or 'spiral'
+    :return: List of patrol routes (list of positions)
     """
-    path = []
-    current_pos = hub1
-    while current_pos != hub2:
-        r1, c1 = current_pos
-        r2, c2 = hub2
+    routes = []
+    if strategy == 'row':
+        # Each drone patrols a set of rows
+        rows_per_drone = GRID_SIZE // NUM_DRONES
+        for i in range(NUM_DRONES):
+            start_row = i * rows_per_drone
+            end_row = start_row + rows_per_drone
+            route = []
+            for r in range(start_row, min(end_row, GRID_SIZE)):
+                for c in range(GRID_SIZE):
+                    route.append((r, c))
+                # Reverse direction to create a zigzag pattern
+                for c in reversed(range(GRID_SIZE)):
+                    route.append((r, c))
+            routes.append(route)
+    elif strategy == 'column':
+        # Each drone patrols a set of columns
+        cols_per_drone = GRID_SIZE // NUM_DRONES
+        for i in range(NUM_DRONES):
+            start_col = i * cols_per_drone
+            end_col = start_col + cols_per_drone
+            route = []
+            for c in range(start_col, min(end_col, GRID_SIZE)):
+                for r in range(GRID_SIZE):
+                    route.append((r, c))
+                # Reverse direction to create a zigzag pattern
+                for r in reversed(range(GRID_SIZE)):
+                    route.append((r, c))
+            routes.append(route)
+    elif strategy == 'spiral':
+        # Drones patrol in spiral patterns starting from different corners
+        for i in range(NUM_DRONES):
+            route = generate_spiral_route(start_corner=i % 4)
+            routes.append(route)
+    else:
+        print("Invalid patrol strategy. Using default 'row' strategy.")
+        return generate_patrol_routes('row')
+    return routes
 
-        possible_moves = []
-
-        if r1 < r2:
-            possible_moves.append((1, 0))  # Move down
-        elif r1 > r2:
-            possible_moves.append((-1, 0))  # Move up
-
-        if c1 < c2:
-            possible_moves.append((0, 1))  # Move right
-        elif c1 > c2:
-            possible_moves.append((0, -1))  # Move left
-
-        # Randomly select one of the possible moves
-        if possible_moves:
-            move_r, move_c = random.choice(possible_moves)
-        else:
-            break  # Already at the destination
-
-        new_r = r1 + move_r
-        new_c = c1 + move_c
-
-        # Ensure the new position is within bounds
-        new_r = max(0, min(GRID_SIZE - 1, new_r))
-        new_c = max(0, min(GRID_SIZE - 1, new_c))
-
-        current_pos = (new_r, new_c)
-        path.append(current_pos)
-
-    return path
-
-def assign_hubs_to_enemy(all_hubs, num_hubs, hub_sharedness, hub_assignments):
+def generate_spiral_route(start_corner=0):
     """
-    Assign hubs to an enemy based on sharedness.
+    Generate a spiral route starting from a specific corner.
 
-    :param all_hubs: List of all hubs.
-    :param num_hubs: Number of hubs to assign to the enemy.
-    :param hub_sharedness: Probability that hubs are shared among enemies.
-    :param hub_assignments: Dictionary mapping hubs to the number of enemies assigned.
-    :return: List of hubs assigned to the enemy.
+    :param start_corner: 0=top-left, 1=top-right, 2=bottom-right, 3=bottom-left
+    :return: List of positions representing the spiral route
     """
-    enemy_hubs = []
-    for _ in range(num_hubs):
-        # Calculate weights for hubs
-        hub_weights = []
-        for hub in all_hubs:
-            if hub in enemy_hubs:
-                continue  # Avoid duplicate hubs for the same enemy
+    route = []
+    visited = [[False]*GRID_SIZE for _ in range(GRID_SIZE)]
+    dirs = [ (0,1), (1,0), (0,-1), (-1,0) ]  # Right, Down, Left, Up
+    dir_index = start_corner
+    r, c = {
+        0: (0,0),
+        1: (0, GRID_SIZE-1),
+        2: (GRID_SIZE-1, GRID_SIZE-1),
+        3: (GRID_SIZE-1, 0)
+    }[start_corner]
+    steps = 1
+    total_cells = GRID_SIZE * GRID_SIZE
+    while len(route) < total_cells:
+        for _ in range(2):
+            dr, dc = dirs[dir_index % 4]
+            for _ in range(steps):
+                if 0 <= r < GRID_SIZE and 0 <= c < GRID_SIZE and not visited[r][c]:
+                    route.append((r, c))
+                    visited[r][c] = True
+                r += dr
+                c += dc
+            dir_index += 1
+        steps += 1
+    return route
 
-            # If hub is already assigned to other enemies, weight it based on sharedness
-            if hub_assignments.get(hub, 0) > 0:
-                weight = hub_sharedness
-            else:
-                weight = 1 - hub_sharedness
-
-            hub_weights.append((hub, weight))
-
-        if not hub_weights:
-            break  # No more hubs to assign
-
-        # Normalize weights
-        total_weight = sum(weight for hub, weight in hub_weights)
-        if total_weight == 0:
-            break  # Avoid division by zero
-
-        # Select a hub based on weights
-        rand_val = random.uniform(0, total_weight)
-        cumulative_weight = 0
-        selected_hub = None
-        for hub, weight in hub_weights:
-            cumulative_weight += weight
-            if rand_val <= cumulative_weight:
-                selected_hub = hub
-                break
-
-        if selected_hub:
-            enemy_hubs.append(selected_hub)
-            hub_assignments[selected_hub] = hub_assignments.get(selected_hub, 0) + 1
-
-    return enemy_hubs
-
-def initialize_game(num_enemies, mean_hubs, std_hubs, hub_sharedness, path_concentration):
+def initialize_game():
     """
-    Initialize the game state with enemies, hubs, and paths.
+    Initialize the game state with drones and their patrol routes.
 
-    :param num_enemies: Total number of enemies.
-    :param mean_hubs: Mean number of hubs per enemy.
-    :param std_hubs: Standard deviation for hubs per enemy.
-    :param hub_sharedness: Probability that hubs are shared among enemies.
-    :param path_concentration: Probability that paths are shared among enemies.
-    :return: Tuple (player_pos, end_pos, enemies).
+    :return: Tuple (player_pos, end_pos, drones)
     """
     # Initialize player and end positions
     player_pos = PLAYER_START_POS
     end_pos = END_POS
 
-    # Generate hubs
-    total_hubs = max(5, int(num_enemies * mean_hubs * 0.7))  # Ensure sufficient hubs
-    hubs = []
-    attempts = 0
-    while len(hubs) < total_hubs and attempts < 1000:
-        attempts += 1
-        r = random.randint(0, GRID_SIZE - 1)
-        c = random.randint(0, GRID_SIZE - 1)
-        pos = (r, c)
-        if pos == player_pos or is_adjacent_to_player_start(pos, distance=2):
-            continue  # Avoid placing hubs too close to the player
-        if pos in hubs:
-            continue  # Avoid duplicate hubs
-        hubs.append(pos)
+    # Generate patrol routes for drones
+    patrol_routes = generate_patrol_routes(DRONE_PATROL_STRATEGY)
 
-    if len(hubs) < total_hubs:
-        print("Could not generate enough hubs. Consider increasing the grid size or adjusting parameters.")
-        exit()
+    # Initialize drones
+    drones = []
+    for i in range(NUM_DRONES):
+        symbol = DRONE_SYMBOLS[i % len(DRONE_SYMBOLS)]
+        # Start each drone at the first position of its patrol route
+        start_pos = patrol_routes[i][0]
+        # Ensure drones do not start at the player's position or adjacent to it
+        if start_pos == player_pos or is_adjacent_to_player_start(start_pos, distance=1):
+            # Find the next available position
+            for pos in patrol_routes[i]:
+                if pos != player_pos and not is_adjacent_to_player_start(pos, distance=1):
+                    start_pos = pos
+                    break
+        drone = Drone(symbol, start_pos, patrol_routes[i])
+        drones.append(drone)
 
-    # Assign hubs to enemies
-    hub_assignments = {}
-    paths_between_hubs = {}
-    enemies = []
-    for i in range(num_enemies):
-        symbol = ENEMY_SYMBOLS[i % len(ENEMY_SYMBOLS)]
-        # Determine number of hubs for this enemy based on Gaussian distribution
-        num_hubs = max(2, int(random.gauss(mean_hubs, std_hubs)))
-        num_hubs = min(num_hubs, len(hubs))  # Prevent assigning more hubs than available
+    return player_pos, end_pos, drones
 
-        # Assign hubs to the enemy
-        enemy_hubs = assign_hubs_to_enemy(hubs, num_hubs, hub_sharedness, hub_assignments)
-        if not enemy_hubs:
-            print(f"Enemy {i+1} could not be assigned any hubs. Consider adjusting hub_sharedness.")
-            continue
-
-        # Create and add the enemy
-        enemy = Enemy(symbol, enemy_hubs, paths_between_hubs, path_concentration)
-        enemies.append(enemy)
-
-    return player_pos, end_pos, enemies
-
-def draw_grid(player_pos, end_pos, enemies):
+def draw_grid(player_pos, end_pos, drones):
     """
     Display the current state of the grid.
 
     :param player_pos: Tuple (row, col) of the player's position.
     :param end_pos: Tuple (row, col) of the end position.
-    :param enemies: List of Enemy objects.
+    :param drones: List of Drone objects.
     """
     grid = [[EMPTY_SYMBOL for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
 
@@ -296,26 +206,26 @@ def draw_grid(player_pos, end_pos, enemies):
     er, ec = end_pos
     grid[er][ec] = END_SYMBOL
 
-    # Place enemies
-    enemy_positions = {}
-    for enemy in enemies:
-        r, c = enemy.position
+    # Place drones
+    drone_positions = {}
+    for drone in drones:
+        r, c = drone.position
         if (r, c) == player_pos:
             continue  # Collision handled separately
-        if (r, c) in enemy_positions:
-            enemy_positions[(r, c)] += 1
+        if (r, c) in drone_positions:
+            drone_positions[(r, c)] += 1
         else:
-            enemy_positions[(r, c)] = 1
+            drone_positions[(r, c)] = 1
 
-    for (r, c), count in enemy_positions.items():
+    for (r, c), count in drone_positions.items():
         if count == 1:
-            # Find the enemy symbol at this position
-            for enemy in enemies:
-                if enemy.position == (r, c):
-                    grid[r][c] = enemy.symbol
+            # Find the drone symbol at this position
+            for drone in drones:
+                if drone.position == (r, c):
+                    grid[r][c] = drone.symbol
                     break
         else:
-            grid[r][c] = '*'  # Indicate multiple enemies
+            grid[r][c] = '*'  # Indicate multiple drones (shouldn't happen)
 
     # Place the player
     pr, pc = player_pos
@@ -327,7 +237,7 @@ def draw_grid(player_pos, end_pos, enemies):
     for idx, row in enumerate(grid):
         row_str = f"{idx:2} | " + " ".join([f"{cell:2}" for cell in row])
         print(row_str)
-    print("\nLegend: P=Player, E=End, X/Y/Z/W/V/Q/R/S/T/U=Enemies, *=Multiple Enemies, .=Empty")
+    print("\nLegend: P=Player, E=End, D/E/F/G/H= Drones, *=Multiple Drones (should not occur), .=Empty")
 
 def get_player_move():
     """
@@ -341,31 +251,25 @@ def get_player_move():
         return get_player_move()
     return MOVES[move]
 
-def is_collision(player_pos, enemies):
+def is_collision(player_pos, drones):
     """
-    Check if the player has collided with any enemy.
+    Check if the player has collided with any drone.
 
     :param player_pos: Tuple (row, col) of the player's position.
-    :param enemies: List of Enemy objects.
+    :param drones: List of Drone objects.
     :return: Boolean indicating collision.
     """
-    for enemy in enemies:
-        if player_pos == enemy.position:
+    for drone in drones:
+        if player_pos == drone.position:
             return True
     return False
 
 def main():
     """Main game loop."""
-    print("Welcome to 'Pall of the Eye'!")
+    print("Welcome to 'Pall of the Eye' - Drone Patrol Edition!")
 
     # Initialize the game
-    player_pos, end_pos, enemies = initialize_game(
-        num_enemies=NUM_ENEMIES,
-        mean_hubs=MEAN_HUBS_PER_ENEMY,
-        std_hubs=STD_HUBS_PER_ENEMY,
-        hub_sharedness=HUB_SHAREDNESS,
-        path_concentration=PATH_CONCENTRATION
-    )
+    player_pos, end_pos, drones = initialize_game()
 
     turn = 0
     max_turns = 200  # Adjust as needed
@@ -373,7 +277,7 @@ def main():
     while turn < max_turns:
         clear_screen()
         print(f"Turn: {turn}")
-        draw_grid(player_pos, end_pos, enemies)
+        draw_grid(player_pos, end_pos, drones)
 
         # Check if player has reached the end
         if player_pos == end_pos:
@@ -394,23 +298,26 @@ def main():
             continue
 
         # Check for collision after player's move
-        if is_collision(player_pos, enemies):
+        if is_collision(player_pos, drones):
             clear_screen()
             print(f"Turn: {turn + 1}")
-            draw_grid(player_pos, end_pos, enemies)
-            print("💥 Oh no! You've been caught by an enemy. Game Over. 💥")
+            draw_grid(player_pos, end_pos, drones)
+            print("💥 Oh no! You've been caught by a drone. Game Over. 💥")
             return
 
-        # Move enemies
-        for enemy in enemies:
-            enemy.move()
+        # Move drones
+        occupied_positions = set(drone.position for drone in drones)
+        for drone in drones:
+            occupied_positions.discard(drone.position)  # Remove current position
+            drone.move(occupied_positions)
+            occupied_positions.add(drone.position)  # Add new position
 
-        # Check for collision after enemies' move
-        if is_collision(player_pos, enemies):
+        # Check for collision after drones' move
+        if is_collision(player_pos, drones):
             clear_screen()
             print(f"Turn: {turn + 1}")
-            draw_grid(player_pos, end_pos, enemies)
-            print("💥 An enemy has moved into your square. Game Over. 💥")
+            draw_grid(player_pos, end_pos, drones)
+            print("💥 A drone has moved into your square. Game Over. 💥")
             return
 
         turn += 1
