@@ -2,6 +2,7 @@ import os
 import time
 import random
 import math
+from collections import deque
 
 # --------------------- Configurable Parameters ---------------------
 
@@ -13,7 +14,7 @@ PLAYER_START_POS = (0, 0)  # Starting position of the player
 END_POS = (GRID_SIZE - 1, GRID_SIZE - 1)  # End position
 
 # Drone Configuration
-NUM_DRONES = 5  # Total number of drones
+NUM_DRONES = 10  # Total number of drones
 
 # Random Seed for Reproducibility
 RANDOM_SEED = None  # Set to an integer value for reproducible results, e.g., 42
@@ -30,6 +31,14 @@ PLAYER_SYMBOL = 'P'
 END_SYMBOL = 'E'
 DRONE_SYMBOLS = ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M']
 
+# Directions for movement
+DIRECTIONS = [
+    (-1, 0),  # Up
+    (1, 0),   # Down
+    (0, -1),  # Left
+    (0, 1)    # Right
+]
+
 def clear_screen():
     """Clear the terminal screen for better readability."""
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -44,40 +53,112 @@ def is_adjacent_to_player_start(pos, distance=1):
     """
     return abs(pos[0] - PLAYER_START_POS[0]) + abs(pos[1] - PLAYER_START_POS[1]) <= distance
 
+def generate_sectors():
+    """
+    Generate unique sectors for each drone, ensuring they are connected, cover the entire grid,
+    and exclude the player's starting position.
+
+    :return: List of sectors, where each sector is a set of positions.
+    """
+    # Initialize sector assignments
+    grid = [[-1 for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+    sectors = [set() for _ in range(NUM_DRONES)]
+
+    # Place seed points for each drone
+    seed_positions = []
+    attempts = 0
+    max_attempts = 1000
+    while len(seed_positions) < NUM_DRONES and attempts < max_attempts:
+        attempts += 1
+        r = random.randint(0, GRID_SIZE - 1)
+        c = random.randint(0, GRID_SIZE - 1)
+        pos = (r, c)
+        if pos == PLAYER_START_POS or is_adjacent_to_player_start(pos):
+            continue
+        if pos in seed_positions:
+            continue
+        seed_positions.append(pos)
+        grid[r][c] = len(seed_positions) - 1
+        sectors[len(seed_positions) - 1].add(pos)
+
+    if len(seed_positions) < NUM_DRONES:
+        print("Could not place all drones. Consider reducing the number of drones or increasing the grid size.")
+        exit()
+
+    # Initialize queues for BFS
+    queues = [deque([pos]) for pos in seed_positions]
+
+    # BFS to assign cells to sectors
+    while any(queues):
+        for i in range(NUM_DRONES):
+            if queues[i]:
+                r, c = queues[i].popleft()
+                for dr, dc in DIRECTIONS:
+                    nr, nc = r + dr, c + dc
+                    if 0 <= nr < GRID_SIZE and 0 <= nc < GRID_SIZE:
+                        if grid[nr][nc] == -1 and (nr, nc) != PLAYER_START_POS:
+                            grid[nr][nc] = i
+                            sectors[i].add((nr, nc))
+                            queues[i].append((nr, nc))
+
+    return sectors
+
 class Drone:
-    def __init__(self, symbol, sector):
+    def __init__(self, symbol, sector, start_offset):
         """
         Initialize a drone.
 
         :param symbol: Single character representing the drone.
-        :param sector: Dictionary with 'start_row', 'end_row', 'start_col', 'end_col' defining the sector.
+        :param sector: Set of positions defining the drone's sector.
+        :param start_offset: Starting index offset in the patrol route to desynchronize drones.
         """
         self.symbol = symbol
         self.sector = sector
         self.patrol_route = self.generate_patrol_route()
-        self.route_index = 0
+        self.route_index = start_offset % len(self.patrol_route)
         self.position = self.patrol_route[self.route_index]
 
     def generate_patrol_route(self):
         """
         Generate a patrol route that covers all squares in the sector without repeating until all squares are visited.
+        The route is cyclical, and the last position is adjacent to the first.
 
         :return: List of positions representing the patrol route.
         """
+        # Use a simple Hamiltonian path approach within the sector
         route = []
-        sr = self.sector['start_row']
-        er = self.sector['end_row']
-        sc = self.sector['start_col']
-        ec = self.sector['end_col']
+        visited = set()
+        stack = []
 
-        for r in range(sr, er):
-            cols = range(sc, ec)
-            if (r - sr) % 2 == 1:
-                cols = reversed(cols)
-            for c in cols:
-                route.append((r, c))
+        # Start from a random position in the sector
+        start_pos = random.choice(list(self.sector))
+        stack.append(start_pos)
+        visited.add(start_pos)
 
-        return route
+        while stack:
+            current_pos = stack.pop()
+            route.append(current_pos)
+            neighbors = []
+
+            for dr, dc in DIRECTIONS:
+                nr, nc = current_pos[0] + dr, current_pos[1] + dc
+                neighbor = (nr, nc)
+                if neighbor in self.sector and neighbor not in visited:
+                    neighbors.append(neighbor)
+
+            if neighbors:
+                stack.append(current_pos)  # Re-add current position to backtrack later
+                next_pos = random.choice(neighbors)
+                stack.append(next_pos)
+                visited.add(next_pos)
+
+        # Ensure the last position is adjacent to the first
+        if abs(route[-1][0] - route[0][0]) + abs(route[-1][1] - route[0][1]) == 1:
+            return route
+        else:
+            # Modify the route to make it cyclical
+            route.append(route[0])
+            return route
 
     def move(self):
         """
@@ -85,55 +166,6 @@ class Drone:
         """
         self.route_index = (self.route_index + 1) % len(self.patrol_route)
         self.position = self.patrol_route[self.route_index]
-
-def compute_sectors(grid_size, num_drones):
-    """
-    Compute the sectors for each drone.
-
-    :param grid_size: Size of the grid.
-    :param num_drones: Number of drones.
-    :return: List of sector dictionaries.
-    """
-    # Determine number of sectors along rows and columns
-    sectors_per_row = int(math.sqrt(num_drones))
-    while num_drones % sectors_per_row != 0 and sectors_per_row > 1:
-        sectors_per_row -= 1
-    sectors_per_col = num_drones // sectors_per_row
-
-    # Adjust if necessary
-    if sectors_per_row * sectors_per_col < num_drones:
-        sectors_per_col += 1
-
-    sector_height = grid_size // sectors_per_row
-    sector_width = grid_size // sectors_per_col
-
-    sectors = []
-    drone_index = 0
-
-    for i in range(sectors_per_row):
-        for j in range(sectors_per_col):
-            if drone_index >= num_drones:
-                break
-            start_row = i * sector_height
-            end_row = (i + 1) * sector_height if (i + 1) * sector_height <= grid_size else grid_size
-            start_col = j * sector_width
-            end_col = (j + 1) * sector_width if (j + 1) * sector_width <= grid_size else grid_size
-
-            # Adjust for any leftover rows or columns
-            if i == sectors_per_row - 1:
-                end_row = grid_size
-            if j == sectors_per_col - 1:
-                end_col = grid_size
-
-            sectors.append({
-                'start_row': start_row,
-                'end_row': end_row,
-                'start_col': start_col,
-                'end_col': end_col
-            })
-            drone_index += 1
-
-    return sectors
 
 def initialize_game():
     """
@@ -145,8 +177,8 @@ def initialize_game():
     player_pos = PLAYER_START_POS
     end_pos = END_POS
 
-    # Compute sectors for drones
-    sectors = compute_sectors(GRID_SIZE, NUM_DRONES)
+    # Generate sectors for drones
+    sectors = generate_sectors()
 
     # Initialize drones
     drones = []
@@ -154,13 +186,14 @@ def initialize_game():
         symbol = DRONE_SYMBOLS[i % len(DRONE_SYMBOLS)]
         sector = sectors[i]
 
-        # Start each drone at the beginning of its patrol route
-        drone = Drone(symbol, sector)
+        # Introduce a random start offset to desynchronize drones
+        start_offset = random.randint(0, len(sector) - 1)
+        drone = Drone(symbol, sector, start_offset)
 
-        # Ensure drones do not start at the player's position or adjacent to it
+        # Ensure drone does not start at the player's position or adjacent to it
         if drone.position == player_pos or is_adjacent_to_player_start(drone.position):
-            # Shift the drone's starting position along its patrol route
-            for idx, pos in enumerate(drone.patrol_route):
+            for idx in range(len(drone.patrol_route)):
+                pos = drone.patrol_route[idx]
                 if pos != player_pos and not is_adjacent_to_player_start(pos):
                     drone.route_index = idx
                     drone.position = pos
@@ -251,7 +284,7 @@ def is_collision(player_pos, drones):
 
 def main():
     """Main game loop."""
-    print("Welcome to 'Pall of the Eye' - Sector Patrol Edition!")
+    print("Welcome to 'Pall of the Eye' - Enhanced Sector Patrol Edition!")
 
     # Initialize the game
     player_pos, end_pos, drones = initialize_game()
