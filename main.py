@@ -24,6 +24,11 @@ def clear_screen():
     """Clear the terminal screen for better readability."""
     os.system('cls' if os.name == 'nt' else 'clear')
 
+def is_adjacent_to_player_start(pos):
+    """Check if a position is adjacent to the player's starting position (0, 0)."""
+    adjacent_positions = [(0, 1), (1, 0), (1, 1)]
+    return pos in adjacent_positions
+
 class Enemy:
     def __init__(self, symbol, pattern, adaptive=False):
         """
@@ -51,8 +56,8 @@ class Enemy:
             # Advance to the next step in the pattern
             next_step = (self.current_step + 1) % len(self.pattern)
             next_position = self.pattern[next_step]
-            # Ensure enemy doesn't move into (0, 0)
-            if next_position == (0, 0):
+            # Ensure enemy doesn't move into or adjacent to (0, 0)
+            if next_position == (0, 0) or is_adjacent_to_player_start(next_position):
                 # Skip this position and advance to the next one
                 next_step = (next_step + 1) % len(self.pattern)
                 next_position = self.pattern[next_step]
@@ -61,7 +66,7 @@ class Enemy:
 
     def move_towards_player(self, player_pos):
         """
-        Move one square towards the player's position, avoiding (0, 0).
+        Move one square towards the player's position, avoiding (0, 0) and its adjacent squares.
 
         :param player_pos: Tuple (row, col) of the player's current position
         """
@@ -74,31 +79,25 @@ class Enemy:
         move_r = (1 if dr > 0 else -1) if dr != 0 else 0
         move_c = (1 if dc > 0 else -1) if dc != 0 else 0
 
-        new_r = r + move_r
-        new_c = c + move_c
+        # Generate potential moves
+        potential_moves = [
+            (r + move_r, c + move_c),   # Diagonal towards player
+            (r + move_r, c),            # Vertical towards player
+            (r, c + move_c),            # Horizontal towards player
+            (r - move_r, c - move_c),   # Diagonal away from player
+            (r - move_r, c),            # Vertical away from player
+            (r, c - move_c),            # Horizontal away from player
+        ]
 
-        # Ensure the enemy stays within the grid bounds and doesn't move into (0,0)
-        if (new_r, new_c) == (0, 0):
-            # Try alternative moves to avoid (0, 0)
-            alternative_moves = [
-                (r + move_r, c),  # Move vertically
-                (r, c + move_c),  # Move horizontally
-                (r - move_r, c),  # Move opposite vertically
-                (r, c - move_c)   # Move opposite horizontally
-            ]
-            for alt_r, alt_c in alternative_moves:
-                if 0 <= alt_r < GRID_SIZE and 0 <= alt_c < GRID_SIZE and (alt_r, alt_c) != (0, 0):
-                    new_r, new_c = alt_r, alt_c
-                    break
-            else:
-                # Stay in place if no alternative moves are available
-                new_r, new_c = r, c
-        else:
-            # Ensure the enemy stays within the grid bounds
-            new_r = max(0, min(GRID_SIZE - 1, new_r))
-            new_c = max(0, min(GRID_SIZE - 1, new_c))
+        for new_r, new_c in potential_moves:
+            # Ensure the enemy stays within the grid bounds and avoids (0,0) and adjacent squares
+            if 0 <= new_r < GRID_SIZE and 0 <= new_c < GRID_SIZE:
+                if (new_r, new_c) != (0, 0) and not is_adjacent_to_player_start((new_r, new_c)):
+                    self.position = (new_r, new_c)
+                    return
 
-        self.position = (new_r, new_c)
+        # If no valid move, stay in place
+        self.position = (r, c)
 
 def initialize_game(complexity_level):
     """
@@ -134,18 +133,18 @@ def generate_enemy_pattern(complexity_level):
     pattern_length = max(4, complexity_level * 2)  # Longer patterns at higher complexity
     pattern = []
 
-    # Start position (exclude (0,0))
+    # Start position (exclude (0,0) and its adjacent squares)
     while True:
         r = random.randint(0, GRID_SIZE - 1)
         c = random.randint(0, GRID_SIZE - 1)
-        if (r, c) != (0, 0):
+        if (r, c) != (0, 0) and not is_adjacent_to_player_start((r, c)):
             break
     pattern.append((r, c))
 
     while len(pattern) < pattern_length:
         # Determine possible moves (only one square in any direction)
         possible_moves = [(-1, 0), (1, 0), (0, -1), (0, 1),
-                         (-1, -1), (-1, 1), (1, -1), (1, 1)]
+                          (-1, -1), (-1, 1), (1, -1), (1, 1)]
         # At higher complexity levels, prefer diagonal moves
         if complexity_level >= 5:
             weighted_moves = possible_moves.copy()
@@ -158,17 +157,14 @@ def generate_enemy_pattern(complexity_level):
         r_new = pattern[-1][0] + dr
         c_new = pattern[-1][1] + dc
 
-        # Ensure the enemy stays within the grid bounds and doesn't move into (0,0)
-        if (r_new, c_new) == (0, 0):
-            # Skip this move and try another
-            continue
-        r_new = max(0, min(GRID_SIZE - 1, r_new))
-        c_new = max(0, min(GRID_SIZE - 1, c_new))
-
-        if (r_new, c_new) == (0, 0):
-            continue
-
-        pattern.append((r_new, c_new))
+        # Ensure the enemy stays within the grid bounds and avoids (0,0) and adjacent squares
+        if 0 <= r_new < GRID_SIZE and 0 <= c_new < GRID_SIZE:
+            if (r_new, c_new) != (0, 0) and not is_adjacent_to_player_start((r_new, c_new)):
+                pattern.append((r_new, c_new))
+            else:
+                continue  # Skip positions adjacent to (0,0)
+        else:
+            continue  # Skip out-of-bounds positions
 
     return pattern
 
@@ -190,8 +186,8 @@ def draw_grid(player_pos, end_pos, enemies):
     enemy_positions = {}
     for enemy in enemies:
         r, c = enemy.position
-        if (r, c) == (0, 0):
-            # Ensure enemies are not placed at the player's starting square
+        if (r, c) == player_pos:
+            # Skip placing enemy here; collision will be handled separately
             continue
         if (r, c) in enemy_positions:
             enemy_positions[(r, c)] += 1
