@@ -13,7 +13,6 @@ END_POS = (GRID_SIZE - 1, GRID_SIZE - 1)  # End position
 
 # Drone Configuration
 NUM_DRONES = 5  # Total number of drones
-DRONE_PATROL_STRATEGY = 'row'  # 'row', 'column', or 'spiral'
 
 # Random Seed for Reproducibility
 RANDOM_SEED = None  # Set to an integer value for reproducible results, e.g., 42
@@ -30,14 +29,13 @@ PLAYER_SYMBOL = 'P'
 END_SYMBOL = 'E'
 DRONE_SYMBOLS = ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M']
 
-# Directions for player movement
-MOVES = {
-    'w': (-1, 0),  # Up
-    's': (1, 0),   # Down
-    'a': (0, -1),  # Left
-    'd': (0, 1),   # Right
-    'f': (0, 0)    # Stay
-}
+# Directions for movement
+DIRECTIONS = [
+    (-1, 0),  # Up
+    (1, 0),   # Down
+    (0, -1),  # Left
+    (0, 1)    # Right
+]
 
 def clear_screen():
     """Clear the terminal screen for better readability."""
@@ -54,112 +52,56 @@ def is_adjacent_to_player_start(pos, distance=2):
     return abs(pos[0] - PLAYER_START_POS[0]) + abs(pos[1] - PLAYER_START_POS[1]) < distance
 
 class Drone:
-    def __init__(self, symbol, start_pos, patrol_route):
+    def __init__(self, symbol, start_pos, grid_size):
         """
         Initialize a drone.
 
         :param symbol: Single character representing the drone.
         :param start_pos: Starting position of the drone.
-        :param patrol_route: List of positions representing the patrol route.
+        :param grid_size: Size of the grid.
         """
         self.symbol = symbol
         self.position = start_pos
-        self.patrol_route = patrol_route
-        self.route_index = 0
+        self.grid_size = grid_size
+        self.visited = set()
+        self.visited.add(start_pos)
 
     def move(self, occupied_positions):
         """
-        Move the drone along its patrol route.
+        Move the drone to a random adjacent square, avoiding occupied positions.
 
         :param occupied_positions: Set of positions currently occupied by other drones.
         """
-        # Calculate next position
-        next_index = (self.route_index + 1) % len(self.patrol_route)
-        next_pos = self.patrol_route[next_index]
+        possible_moves = []
 
-        # Ensure the next position is not occupied
-        if next_pos not in occupied_positions:
+        for dr, dc in DIRECTIONS:
+            new_r = self.position[0] + dr
+            new_c = self.position[1] + dc
+
+            # Check bounds
+            if 0 <= new_r < self.grid_size and 0 <= new_c < self.grid_size:
+                new_pos = (new_r, new_c)
+                if new_pos not in occupied_positions:
+                    possible_moves.append(new_pos)
+
+        # If there are possible moves, choose one
+        if possible_moves:
+            # Prioritize unvisited squares
+            unvisited_moves = [pos for pos in possible_moves if pos not in self.visited]
+            if unvisited_moves:
+                next_pos = random.choice(unvisited_moves)
+            else:
+                next_pos = random.choice(possible_moves)
+
             self.position = next_pos
-            self.route_index = next_index
-        # If next position is occupied, drone stays in place this turn
+            self.visited.add(next_pos)
+        else:
+            # No possible moves; drone stays in place
+            pass
 
-def generate_patrol_routes(strategy):
-    """
-    Generate patrol routes for drones based on the selected strategy.
-
-    :param strategy: 'row', 'column', or 'spiral'
-    :return: List of patrol routes (list of positions)
-    """
-    routes = []
-    if strategy == 'row':
-        # Each drone patrols a set of rows
-        rows_per_drone = GRID_SIZE // NUM_DRONES
-        for i in range(NUM_DRONES):
-            start_row = i * rows_per_drone
-            end_row = start_row + rows_per_drone
-            route = []
-            for r in range(start_row, min(end_row, GRID_SIZE)):
-                for c in range(GRID_SIZE):
-                    route.append((r, c))
-                # Reverse direction to create a zigzag pattern
-                for c in reversed(range(GRID_SIZE)):
-                    route.append((r, c))
-            routes.append(route)
-    elif strategy == 'column':
-        # Each drone patrols a set of columns
-        cols_per_drone = GRID_SIZE // NUM_DRONES
-        for i in range(NUM_DRONES):
-            start_col = i * cols_per_drone
-            end_col = start_col + cols_per_drone
-            route = []
-            for c in range(start_col, min(end_col, GRID_SIZE)):
-                for r in range(GRID_SIZE):
-                    route.append((r, c))
-                # Reverse direction to create a zigzag pattern
-                for r in reversed(range(GRID_SIZE)):
-                    route.append((r, c))
-            routes.append(route)
-    elif strategy == 'spiral':
-        # Drones patrol in spiral patterns starting from different corners
-        for i in range(NUM_DRONES):
-            route = generate_spiral_route(start_corner=i % 4)
-            routes.append(route)
-    else:
-        print("Invalid patrol strategy. Using default 'row' strategy.")
-        return generate_patrol_routes('row')
-    return routes
-
-def generate_spiral_route(start_corner=0):
-    """
-    Generate a spiral route starting from a specific corner.
-
-    :param start_corner: 0=top-left, 1=top-right, 2=bottom-right, 3=bottom-left
-    :return: List of positions representing the spiral route
-    """
-    route = []
-    visited = [[False]*GRID_SIZE for _ in range(GRID_SIZE)]
-    dirs = [ (0,1), (1,0), (0,-1), (-1,0) ]  # Right, Down, Left, Up
-    dir_index = start_corner
-    r, c = {
-        0: (0,0),
-        1: (0, GRID_SIZE-1),
-        2: (GRID_SIZE-1, GRID_SIZE-1),
-        3: (GRID_SIZE-1, 0)
-    }[start_corner]
-    steps = 1
-    total_cells = GRID_SIZE * GRID_SIZE
-    while len(route) < total_cells:
-        for _ in range(2):
-            dr, dc = dirs[dir_index % 4]
-            for _ in range(steps):
-                if 0 <= r < GRID_SIZE and 0 <= c < GRID_SIZE and not visited[r][c]:
-                    route.append((r, c))
-                    visited[r][c] = True
-                r += dr
-                c += dc
-            dir_index += 1
-        steps += 1
-    return route
+        # Reset visited squares if all have been visited
+        if len(self.visited) == self.grid_size * self.grid_size:
+            self.visited = set([self.position])
 
 def initialize_game():
     """
@@ -171,24 +113,33 @@ def initialize_game():
     player_pos = PLAYER_START_POS
     end_pos = END_POS
 
-    # Generate patrol routes for drones
-    patrol_routes = generate_patrol_routes(DRONE_PATROL_STRATEGY)
-
     # Initialize drones
     drones = []
+    occupied_positions = set()
+    attempts = 0
+    max_attempts = 1000
+
     for i in range(NUM_DRONES):
         symbol = DRONE_SYMBOLS[i % len(DRONE_SYMBOLS)]
-        # Start each drone at the first position of its patrol route
-        start_pos = patrol_routes[i][0]
-        # Ensure drones do not start at the player's position or adjacent to it
-        if start_pos == player_pos or is_adjacent_to_player_start(start_pos, distance=1):
-            # Find the next available position
-            for pos in patrol_routes[i]:
-                if pos != player_pos and not is_adjacent_to_player_start(pos, distance=1):
-                    start_pos = pos
-                    break
-        drone = Drone(symbol, start_pos, patrol_routes[i])
-        drones.append(drone)
+
+        while attempts < max_attempts:
+            attempts += 1
+            r = random.randint(0, GRID_SIZE - 1)
+            c = random.randint(0, GRID_SIZE - 1)
+            start_pos = (r, c)
+
+            if start_pos == player_pos or is_adjacent_to_player_start(start_pos, distance=2):
+                continue  # Avoid starting near the player
+            if start_pos in occupied_positions:
+                continue  # Avoid starting on another drone
+
+            occupied_positions.add(start_pos)
+            drone = Drone(symbol, start_pos, GRID_SIZE)
+            drones.append(drone)
+            break
+        else:
+            print("Could not place all drones. Consider reducing the number of drones or increasing the grid size.")
+            exit()
 
     return player_pos, end_pos, drones
 
@@ -225,7 +176,7 @@ def draw_grid(player_pos, end_pos, drones):
                     grid[r][c] = drone.symbol
                     break
         else:
-            grid[r][c] = '*'  # Indicate multiple drones (shouldn't happen)
+            grid[r][c] = '*'  # Indicate multiple drones (should not occur)
 
     # Place the player
     pr, pc = player_pos
@@ -245,6 +196,13 @@ def get_player_move():
 
     :return: Tuple (dr, dc) representing the move direction.
     """
+    MOVES = {
+        'w': (-1, 0),  # Up
+        's': (1, 0),   # Down
+        'a': (0, -1),  # Left
+        'd': (0, 1),   # Right
+        'f': (0, 0)    # Stay
+    }
     move = input("\nMove (w=up, s=down, a=left, d=right, f=stay): ").strip().lower()
     if move not in MOVES:
         print("Invalid move. Please enter 'w', 'a', 's', 'd', or 'f'.")
