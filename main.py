@@ -14,10 +14,10 @@ PLAYER_START_POS = (0, 0)  # Starting position of the player
 END_POS = (GRID_SIZE - 1, GRID_SIZE - 1)  # End position
 
 # Drone Configuration
-NUM_DRONES = 10  # Total number of drones
+NUM_DRONES = 25  # Total number of drones
 
 # Random Seed for Reproducibility
-RANDOM_SEED = None  # Set to an integer value for reproducible results, e.g., 42
+RANDOM_SEED = 42  # Set to an integer value for reproducible results, e.g., 42
 
 # --------------------- End of Configurable Parameters ---------------------
 
