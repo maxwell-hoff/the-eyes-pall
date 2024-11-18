@@ -134,15 +134,15 @@ def generate_sectors():
     return sectors
 
 class DroneGroup:
-    def __init__(self, symbol, movement_pattern):
+    def __init__(self, symbol, direction_order):
         """
         Initialize a drone group.
 
         :param symbol: Single character representing the drone group.
-        :param movement_pattern: List of relative moves defining the group's movement pattern.
+        :param direction_order: List of directions to use when traversing sectors.
         """
         self.symbol = symbol
-        self.movement_pattern = movement_pattern
+        self.direction_order = direction_order
         self.drones = []
 
 class Drone:
@@ -164,44 +164,40 @@ class Drone:
 
     def generate_patrol_route(self):
         """
-        Generate a patrol route for the drone based on the group's movement pattern and the drone's sector.
+        Generate a patrol route for the drone based on the group's direction order and the drone's sector.
 
         :return: List of positions representing the patrol route.
         """
-        # Start from a position in the sector
+        route = []
+        visited = set()
+        stack = []
         start_pos = random.choice(list(self.sector))
-        route = [start_pos]
-        visited = set([start_pos])
-        current_pos = start_pos
+        stack.append(start_pos)
+        visited.add(start_pos)
 
-        # Apply the movement pattern to build the route
-        pattern_index = 0
-        while len(visited) < len(self.sector):
-            move = self.group.movement_pattern[pattern_index % len(self.group.movement_pattern)]
-            next_pos = (current_pos[0] + move[0], current_pos[1] + move[1])
-            if next_pos in self.sector and next_pos not in visited:
-                route.append(next_pos)
-                visited.add(next_pos)
-                current_pos = next_pos
-            else:
-                # Try other directions if the pattern move is invalid
-                found = False
+        while stack:
+            current_pos = stack.pop()
+            route.append(current_pos)
+
+            # Get directions in the group's order
+            found_next = False
+            for move in self.group.direction_order:
+                dr, dc = move
+                next_pos = (current_pos[0] + dr, current_pos[1] + dc)
+                if next_pos in self.sector and next_pos not in visited:
+                    stack.append(next_pos)
+                    visited.add(next_pos)
+                    found_next = True
+                    break  # Only add one next position to ensure moving to adjacent square
+
+            if not found_next:
+                # Try other directions if no move found in group's direction order
                 for dr, dc in DIRECTIONS:
-                    temp_pos = (current_pos[0] + dr, current_pos[1] + dc)
-                    if temp_pos in self.sector and temp_pos not in visited:
-                        route.append(temp_pos)
-                        visited.add(temp_pos)
-                        current_pos = temp_pos
-                        found = True
-                        break
-                if not found:
-                    break  # No more moves possible
-            pattern_index += 1
-
-        # If route is shorter than sector size, fill remaining positions
-        if len(route) < len(self.sector):
-            remaining_positions = list(self.sector - visited)
-            route.extend(remaining_positions)
+                    next_pos = (current_pos[0] + dr, current_pos[1] + dc)
+                    if next_pos in self.sector and next_pos not in visited:
+                        stack.append(next_pos)
+                        visited.add(next_pos)
+                        break  # Only add one next position
 
         return route
 
@@ -254,21 +250,21 @@ def initialize_game():
     # Generate sectors for drones
     sectors = generate_sectors()
 
-    # Define movement patterns for each drone group
-    movement_patterns = [
-        [ (0, 1), (1, 0), (0, -1), (-1, 0) ],  # Square loop clockwise
-        [ (1, 0), (0, 1), (-1, 0), (0, -1) ],  # Square loop counterclockwise
-        [ (0, 1) ],                            # Horizontal line
-        [ (1, 0) ],                            # Vertical line
-        [ (1, 1), (-1, -1) ]                   # Diagonal movement
+    # Define direction orders for each drone group
+    direction_orders = [
+        [ (0, 1), (1, 0), (0, -1), (-1, 0) ],  # Group 0: Right, Down, Left, Up
+        [ (1, 0), (0, 1), (-1, 0), (0, -1) ],  # Group 1: Down, Right, Up, Left
+        [ (0, 1), (0, -1) ],                   # Group 2: Right, Left
+        [ (1, 0), (-1, 0) ],                   # Group 3: Down, Up
+        [ (1, 1), (-1, -1) ]                   # Group 4: Diagonal moves
     ]
 
     # Create drone groups
     drone_groups = []
     for i in range(NUM_DRONE_GROUPS):
         symbol = DRONE_SYMBOLS[i % len(DRONE_SYMBOLS)]
-        pattern = movement_patterns[i % len(movement_patterns)]
-        group = DroneGroup(symbol, pattern)
+        direction_order = direction_orders[i % len(direction_orders)]
+        group = DroneGroup(symbol, direction_order)
         drone_groups.append(group)
 
     # Distribute drones among groups
