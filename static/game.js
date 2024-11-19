@@ -20,13 +20,27 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'ArrowRight':
                 move = 'RIGHT';
                 break;
-            case ' ':
+            case 'Enter':
                 move = 'STAY';
                 break;
             default:
                 return; // Ignore other keys
         }
         makeMove(move);
+    });
+
+    // Handle Reset Button
+    const resetButton = document.getElementById('reset-button');
+    resetButton.addEventListener('click', () => {
+        fetch('/reset', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            gameOver = data.game_over;
+            document.getElementById('message').innerText = data.message;
+            fetchGameState();
+        });
     });
 });
 

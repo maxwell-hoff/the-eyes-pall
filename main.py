@@ -22,10 +22,6 @@ RANDOM_SEED = 42  # Set to an integer value for reproducible results
 
 # --------------------- End of Configurable Parameters ---------------------
 
-# Set the random seed for reproducibility
-if RANDOM_SEED is not None:
-    random.seed(RANDOM_SEED)
-
 # Define symbols
 EMPTY_SYMBOL = '.'
 PLAYER_SYMBOL = 'P'
@@ -194,6 +190,10 @@ def initialize_game():
     drones = []
     assigned_positions = set([PLAYER_START_POS])  # Positions already assigned to sectors
 
+    # Set the random seed for reproducibility
+    if RANDOM_SEED is not None:
+        random.seed(RANDOM_SEED)
+
     for i, group in enumerate(drone_groups):
         num_drones_in_group = drones_per_group[i]
         for _ in range(num_drones_in_group):
@@ -254,7 +254,7 @@ def draw_grid(player_pos, end_pos, drones):
         if len(symbols) == 1:
             grid[r][c] = symbols.pop()
         else:
-            grid[r][c] = '*'  # Indicate multiple drones (should not occur)
+            grid[r][c] = '*'  # Indicate multiple drones
 
     # Place the player
     pr, pc = player_pos
@@ -375,26 +375,31 @@ Session(app)
 
 @app.route('/')
 def index():
-    if 'game_state' not in session:
-        # Initialize the game
-        player_pos, end_pos, drones = initialize_game()
-        session['player_pos'] = player_pos
-        session['end_pos'] = end_pos
-        session['turn'] = 0
-        session['max_turns'] = 200
-        # Store drones as list of dicts for serialization
-        session['drones'] = [
-            {
-                'symbol': drone.symbol,
-                'position': drone.position,
-                'route_index': drone.route_index,
-                'direction': drone.direction,
-                'sector_origin': drone.sector_origin
-            } for drone in drones
-        ]
-        session['game_over'] = False
-        session['message'] = ''
+    # Initialize the game if not already started
+    if 'initialized' not in session:
+        initialize_web_game()
     return render_template('index.html')
+
+def initialize_web_game():
+    """Initialize the game state for the web version."""
+    player_pos, end_pos, drones = initialize_game()
+    session['player_pos'] = player_pos
+    session['end_pos'] = end_pos
+    session['turn'] = 0
+    session['max_turns'] = 200
+    # Store drones as list of dicts for serialization
+    session['drones'] = [
+        {
+            'symbol': drone.symbol,
+            'position': drone.position,
+            'route_index': drone.route_index,
+            'direction': drone.direction,
+            'sector_origin': drone.sector_origin
+        } for drone in drones
+    ]
+    session['game_over'] = False
+    session['message'] = ''
+    session['initialized'] = True
 
 @app.route('/game_state', methods=['GET'])
 def get_game_state():
@@ -404,7 +409,9 @@ def get_game_state():
     drones = []
 
     # Reconstruct drone groups
-    drone_groups = {group_def['symbol']: DroneGroup(group_def['symbol'], group_def['sector_shape'], group_def['patrol_route']) for group_def in GROUP_DEFINITIONS}
+    drone_groups = {group_def['symbol']: DroneGroup(
+        group_def['symbol'], group_def['sector_shape'], group_def['patrol_route']
+    ) for group_def in GROUP_DEFINITIONS}
 
     # Reconstruct drones
     for drone_data in drones_data:
@@ -452,7 +459,9 @@ def move():
     player_pos = (new_r, new_c)
 
     # Reconstruct drone groups
-    drone_groups = {group_def['symbol']: DroneGroup(group_def['symbol'], group_def['sector_shape'], group_def['patrol_route']) for group_def in GROUP_DEFINITIONS}
+    drone_groups = {group_def['symbol']: DroneGroup(
+        group_def['symbol'], group_def['sector_shape'], group_def['patrol_route']
+    ) for group_def in GROUP_DEFINITIONS}
 
     # Reconstruct drones
     drones = []
@@ -525,22 +534,7 @@ def move():
 @app.route('/reset', methods=['POST'])
 def reset():
     """Reset the game state."""
-    player_pos, end_pos, drones = initialize_game()
-    session['player_pos'] = player_pos
-    session['end_pos'] = end_pos
-    session['turn'] = 0
-    session['max_turns'] = 200
-    session['drones'] = [
-        {
-            'symbol': drone.symbol,
-            'position': drone.position,
-            'route_index': drone.route_index,
-            'direction': drone.direction,
-            'sector_origin': drone.sector_origin
-        } for drone in drones
-    ]
-    session['game_over'] = False
-    session['message'] = ''
+    initialize_web_game()
     return jsonify({'message': 'Game has been reset.', 'game_over': False})
 
 # --------------------- Main Entry Point ---------------------
