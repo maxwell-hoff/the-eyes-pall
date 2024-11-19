@@ -31,12 +31,13 @@ END_SYMBOL = 'X'
 DRONE_SYMBOLS = ['T1', 'T2', 'T3', 'T4', 'T5']
 
 # Directions for movement
-DIRECTIONS = [
-    (-1, 0),  # Up
-    (1, 0),   # Down
-    (0, -1),  # Left
-    (0, 1)    # Right
-]
+DIRECTIONS = {
+    'UP': (-1, 0),     # Up
+    'DOWN': (1, 0),    # Down
+    'LEFT': (0, -1),   # Left
+    'RIGHT': (0, 1),   # Right
+    'STAY': (0, 0)     # Stay
+}
 
 def clear_screen():
     """Clear the terminal screen for better readability."""
@@ -209,11 +210,12 @@ def initialize_game():
 
 def draw_grid(player_pos, end_pos, drones):
     """
-    Display the current state of the grid.
+    Create the current state of the grid.
 
     :param player_pos: Tuple (row, col) of the player's position.
     :param end_pos: Tuple (row, col) of the end position.
     :param drones: List of Drone objects.
+    :return: List of lists representing the grid.
     """
     grid = [[EMPTY_SYMBOL for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
 
@@ -242,6 +244,10 @@ def draw_grid(player_pos, end_pos, drones):
     pr, pc = player_pos
     grid[pr][pc] = PLAYER_SYMBOL
 
+    return grid
+
+def print_grid(grid):
+    """Print the grid to the console."""
     # Print the grid with row and column indices
     header = "    " + " ".join([f"{c:2}" for c in range(GRID_SIZE)])
     print(header)
@@ -257,11 +263,11 @@ def get_player_move():
     :return: Tuple (dr, dc) representing the move direction.
     """
     MOVES = {
-        'w': (-1, 0),  # Up
-        's': (1, 0),   # Down
-        'a': (0, -1),  # Left
-        'd': (0, 1),   # Right
-        'f': (0, 0)    # Stay
+        'w': DIRECTIONS['UP'],      # Up
+        's': DIRECTIONS['DOWN'],    # Down
+        'a': DIRECTIONS['LEFT'],    # Left
+        'd': DIRECTIONS['RIGHT'],   # Right
+        'f': DIRECTIONS['STAY']     # Stay
     }
     move = input("\nMove (w=up, s=down, a=left, d=right, f=stay): ").strip().lower()
     if move not in MOVES:
@@ -282,8 +288,10 @@ def is_collision(player_pos, drones):
             return True
     return False
 
-def main():
-    """Main game loop."""
+# --------------------- Command-Line Interface ---------------------
+
+def play_cli():
+    """Play the game using the command-line interface."""
     print("Welcome to 'Pall of the Eye' - Drone Group Patrol Edition!")
 
     # Initialize the game
@@ -295,7 +303,8 @@ def main():
     while turn < max_turns:
         clear_screen()
         print(f"Turn: {turn}")
-        draw_grid(player_pos, end_pos, drones)
+        grid = draw_grid(player_pos, end_pos, drones)
+        print_grid(grid)
 
         # Check if player has reached the end
         if player_pos == end_pos:
@@ -319,7 +328,8 @@ def main():
         if is_collision(player_pos, drones):
             clear_screen()
             print(f"Turn: {turn + 1}")
-            draw_grid(player_pos, end_pos, drones)
+            grid = draw_grid(player_pos, end_pos, drones)
+            print_grid(grid)
             print("💥 Oh no! You've been caught by a drone. Game Over. 💥")
             return
 
@@ -331,7 +341,8 @@ def main():
         if is_collision(player_pos, drones):
             clear_screen()
             print(f"Turn: {turn + 1}")
-            draw_grid(player_pos, end_pos, drones)
+            grid = draw_grid(player_pos, end_pos, drones)
+            print_grid(grid)
             print("💥 A drone has moved into your square. Game Over. 💥")
             return
 
@@ -339,5 +350,149 @@ def main():
 
     print("⏰ Maximum turns reached. Game Over.")
 
-if __name__ == "__main__":
-    main()
+# --------------------- Flask Web Interface ---------------------
+
+from flask import Flask, render_template, request, session, redirect, url_for, jsonify
+from flask_session import Session
+
+app = Flask(__name__)
+app.secret_key = 'your-secret-key'  # Replace with a random secret key
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
+
+@app.route('/')
+def index():
+    if 'game_state' not in session:
+        # Initialize the game
+        player_pos, end_pos, drones = initialize_game()
+        session['player_pos'] = player_pos
+        session['end_pos'] = end_pos
+        session['turn'] = 0
+        session['max_turns'] = 200
+        session['drones'] = [(drone.group.symbol, drone.position, drone.route_index, drone.direction, drone.sector_origin) for drone in drones]
+        session['game_over'] = False
+
+    return render_template('index.html')
+
+@app.route('/game_state', methods=['GET'])
+def get_game_state():
+    player_pos = tuple(session['player_pos'])
+    end_pos = tuple(session['end_pos'])
+    drones = []
+    for data in session['drones']:
+        symbol, position, route_index, direction, sector_origin = data
+        drone = Drone(next(group for group in create_drone_groups() if group.symbol == symbol), sector_origin)
+        drone.position = tuple(position)
+        drone.route_index = route_index
+        drone.direction = direction
+        drones.append(drone)
+    grid = draw_grid(player_pos, end_pos, drones)
+    return jsonify({
+        'grid': grid,
+        'turn': session['turn'],
+        'game_over': session['game_over'],
+        'message': session.get('message', '')
+    })
+
+def create_drone_groups():
+    # Define sector shapes and patrol routes for each drone group
+    group_definitions = [
+        {
+            'symbol': 'T1',
+            'sector_shape': [(0, 0), (0, 1), (1, 0), (1, 1)],  # 2x2 square
+            'patrol_route': [(0, 0), (0, 1), (1, 1), (1, 0)]  # Loop around the square
+        },
+        {
+            'symbol': 'T2',
+            'sector_shape': [(0, 0), (0, 1), (0, 2)],  # Horizontal line of 3 squares
+            'patrol_route': [(0, 0), (0, 1), (0, 2), (0, 1)]  # Back and forth
+        },
+        {
+            'symbol': 'T3',
+            'sector_shape': [(0, 0), (1, 0), (2, 0)],  # Vertical line of 3 squares
+            'patrol_route': [(0, 0), (1, 0), (2, 0), (1, 0)]  # Up and down
+        },
+        {
+            'symbol': 'T4',
+            'sector_shape': [(0, 0), (1, 0), (1, 1)],  # L-shape
+            'patrol_route': [(0, 0), (1, 0), (1, 1), (1, 0)]  # Loop around the L
+        },
+        {
+            'symbol': 'T5',
+            'sector_shape': [(0, 1), (1, 0), (1, 1), (1, 2)],  # T-shape
+            'patrol_route': [(1, 0), (1, 1), (1, 2), (0, 1), (1, 1)]  # Traverse the T
+        }
+    ]
+
+    # Create drone groups
+    drone_groups = []
+    for group_def in group_definitions:
+        group = DroneGroup(group_def['symbol'], group_def['sector_shape'], group_def['patrol_route'])
+        drone_groups.append(group)
+    return drone_groups
+
+@app.route('/move', methods=['POST'])
+def move():
+    if session['game_over']:
+        return jsonify({'message': 'Game Over', 'game_over': True})
+
+    data = request.get_json()
+    move = data.get('move')
+    move_dir = DIRECTIONS.get(move.upper(), (0, 0))
+
+    player_pos = tuple(session['player_pos'])
+    new_r = player_pos[0] + move_dir[0]
+    new_c = player_pos[1] + move_dir[1]
+
+    if not (0 <= new_r < GRID_SIZE and 0 <= new_c < GRID_SIZE):
+        session['message'] = "🚫 Move out of bounds. Try again."
+        return jsonify({'message': session['message']})
+
+    player_pos = (new_r, new_c)
+
+    # Reconstruct drones
+    drones = []
+    for data in session['drones']:
+        symbol, position, route_index, direction, sector_origin = data
+        drone = Drone(next(group for group in create_drone_groups() if group.symbol == symbol), sector_origin)
+        drone.position = tuple(position)
+        drone.route_index = route_index
+        drone.direction = direction
+        drones.append(drone)
+
+    # Check for collision after player's move
+    if is_collision(player_pos, drones):
+        session['game_over'] = True
+        session['message'] = "💥 Oh no! You've been caught by a drone. Game Over. 💥"
+        return jsonify({'message': session['message'], 'game_over': True})
+
+    # Move drones
+    for drone in drones:
+        drone.move()
+
+    # Check for collision after drones' move
+    if is_collision(player_pos, drones):
+        session['game_over'] = True
+        session['message'] = "💥 A drone has moved into your square. Game Over. 💥"
+        return jsonify({'message': session['message'], 'game_over': True})
+
+    # Update session data
+    session['player_pos'] = player_pos
+    session['drones'] = [(drone.group.symbol, drone.position, drone.route_index, drone.direction, drone.sector_origin) for drone in drones]
+    session['turn'] += 1
+
+    # Check if player has reached the end
+    if player_pos == tuple(session['end_pos']):
+        session['game_over'] = True
+        session['message'] = "🎉 Congratulations! You've reached the end and won the game! 🎉"
+        return jsonify({'message': session['message'], 'game_over': True})
+
+    session['message'] = ''
+    return jsonify({'message': 'Move successful', 'game_over': False})
+
+if __name__ == '__main__':
+    import sys
+    if 'cli' in sys.argv:
+        play_cli()
+    else:
+        app.run(debug=True)

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pall of the Eye - Web Version</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            display: inline-block;
+            margin: 20px;
+        }
+        .grid-row {
+            display: flex;
+        }
+        .grid-cell {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #ccc;
+            text-align: center;
+            line-height: 30px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .legend {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Pall of the Eye - Web Version</h1>
+    <p>Use arrow keys to move. Reach the 'X' to win.</p>
+    <div id="game-container"></div>
+    <div id="message"></div>
+    <div class="legend">
+        <p>Legend: P=Player, X=End, T1/T2/T3/T4/T5= Drone Groups, *=Multiple Drones, .=Empty</p>
+    </div>
+    <script src="{{ url_for('static', filename='game.js') }}"></script>
+</body>
+</html>
