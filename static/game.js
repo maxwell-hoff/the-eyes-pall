@@ -1,5 +1,6 @@
 let gameOver = false;
 let gridCells = [];
+const EMPTY_SYMBOL = '.'; // Define EMPTY_SYMBOL
 
 document.addEventListener('DOMContentLoaded', () => {
     fetchGameState(true);
@@ -148,6 +149,10 @@ function animateMovements(data) {
 
 function animateMove(fromCell, toCell, type, symbol = '') {
     return new Promise(resolve => {
+        // Clear the symbol from the fromCell and toCell to avoid duplication during animation
+        fromCell.innerText = EMPTY_SYMBOL;
+        toCell.innerText = EMPTY_SYMBOL;
+
         const movingElement = document.createElement('div');
         movingElement.className = 'moving-piece ' + type;
         movingElement.innerText = symbol;
