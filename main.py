@@ -1,7 +1,6 @@
 import os
 import time
 import random
-from collections import deque
 
 # --------------------- Configurable Parameters ---------------------
 
@@ -28,8 +27,8 @@ if RANDOM_SEED is not None:
 # Define symbols
 EMPTY_SYMBOL = '.'
 PLAYER_SYMBOL = 'P'
-END_SYMBOL = 'E'
-DRONE_SYMBOLS = ['D', 'E', 'F', 'G', 'H']
+END_SYMBOL = 'X'
+DRONE_SYMBOLS = ['T1', 'T2', 'T3', 'T4', 'T5']
 
 # Directions for movement
 DIRECTIONS = [
@@ -53,152 +52,60 @@ def is_adjacent_to_player_start(pos, distance=1):
     """
     return abs(pos[0] - PLAYER_START_POS[0]) + abs(pos[1] - PLAYER_START_POS[1]) <= distance
 
-def generate_sectors():
-    """
-    Generate unique sectors for each drone, ensuring they are connected, cover the entire grid,
-    and exclude the player's starting position.
-
-    :return: List of sectors, where each sector is a set of positions.
-    """
-    total_positions = GRID_SIZE * GRID_SIZE - 1  # Exclude player's starting position
-    min_sector_size = 2
-    max_sector_size = 4
-    sectors = []
-    assigned_positions = set([PLAYER_START_POS])
-    unassigned_positions = set(
-        (r, c) for r in range(GRID_SIZE) for c in range(GRID_SIZE) if (r, c) != PLAYER_START_POS)
-
-    for i in range(NUM_DRONES):
-        remaining_positions = len(unassigned_positions)
-        if remaining_positions < min_sector_size:
-            print(f"Warning: Not enough positions left to create a sector of minimum size {min_sector_size}")
-            break  # No more sectors can be created
-
-        sector_size = random.randint(min_sector_size, min(max_sector_size, remaining_positions))
-        sector = set()
-
-        # Find a starting position for this sector
-        possible_starts = list(unassigned_positions)
-        if not possible_starts:
-            break  # No more positions to assign
-        start_pos = random.choice(possible_starts)
-        sector.add(start_pos)
-        unassigned_positions.remove(start_pos)
-        assigned_positions.add(start_pos)
-
-        # Expand the sector using BFS to reach the desired size
-        queue = deque([start_pos])
-        while queue and len(sector) < sector_size:
-            current_pos = queue.popleft()
-            for dr, dc in DIRECTIONS:
-                nr, nc = current_pos[0] + dr, current_pos[1] + dc
-                neighbor = (nr, nc)
-                if 0 <= nr < GRID_SIZE and 0 <= nc < GRID_SIZE:
-                    if neighbor in unassigned_positions:
-                        sector.add(neighbor)
-                        unassigned_positions.remove(neighbor)
-                        assigned_positions.add(neighbor)
-                        queue.append(neighbor)
-        if len(sector) >= min_sector_size:
-            sectors.append(sector)
-        else:
-            print(f"Warning: Could not create a sector of minimum size {min_sector_size}, sector size is {len(sector)}")
-            # Return unassigned positions to the pool
-            unassigned_positions.update(sector)
-            assigned_positions.difference_update(sector)
-
-    # If there are remaining unassigned positions, assign them to existing sectors
-    while unassigned_positions:
-        for sector in sectors:
-            if not unassigned_positions:
-                break
-            possible_starts = [pos for pos in sector if any(
-                (pos[0] + dr, pos[1] + dc) in unassigned_positions for dr, dc in DIRECTIONS)]
-            if possible_starts:
-                start_pos = random.choice(possible_starts)
-                for dr, dc in DIRECTIONS:
-                    nr, nc = start_pos[0] + dr, start_pos[1] + dc
-                    neighbor = (nr, nc)
-                    if neighbor in unassigned_positions:
-                        sector.add(neighbor)
-                        unassigned_positions.remove(neighbor)
-                        assigned_positions.add(neighbor)
-                        break
-
-    # Verify that all sectors have at least min_sector_size positions
-    for i, sector in enumerate(sectors):
-        if len(sector) < min_sector_size:
-            print(f"Error: Sector {i} has size less than minimum: {len(sector)}")
-            # Optionally, merge this sector with another
-
-    return sectors
-
 class DroneGroup:
-    def __init__(self, symbol, direction_order):
+    def __init__(self, symbol, sector_shape, patrol_route):
         """
         Initialize a drone group.
 
-        :param symbol: Single character representing the drone group.
-        :param direction_order: List of directions to use when traversing sectors.
+        :param symbol: String representing the drone group.
+        :param sector_shape: List of relative positions defining the sector shape.
+        :param patrol_route: List of positions defining the patrol route within the sector.
         """
         self.symbol = symbol
-        self.direction_order = direction_order
+        self.sector_shape = sector_shape
+        self.patrol_route = patrol_route
         self.drones = []
 
 class Drone:
-    def __init__(self, group, sector):
+    def __init__(self, group, sector_origin):
         """
         Initialize a drone.
 
         :param group: The DroneGroup object the drone belongs to.
-        :param sector: Set of positions defining the drone's sector.
+        :param sector_origin: The top-left position of the drone's sector.
         """
         self.symbol = group.symbol
         self.group = group
-        self.sector = sector
-        self.patrol_route = self.generate_patrol_route()
+        self.sector_origin = sector_origin
+        self.sector = self.calculate_sector()
+        self.patrol_route = self.calculate_patrol_route()
         self.route_length = len(self.patrol_route)
         self.route_index = 0
         self.direction = 1  # 1 for forward, -1 for backward
         self.position = self.patrol_route[self.route_index]
 
-    def generate_patrol_route(self):
+    def calculate_sector(self):
         """
-        Generate a patrol route for the drone based on the group's direction order and the drone's sector.
+        Calculate the absolute positions of the drone's sector based on its origin and group sector shape.
+
+        :return: Set of positions representing the sector.
+        """
+        sector = set()
+        for rel_pos in self.group.sector_shape:
+            abs_pos = (self.sector_origin[0] + rel_pos[0], self.sector_origin[1] + rel_pos[1])
+            sector.add(abs_pos)
+        return sector
+
+    def calculate_patrol_route(self):
+        """
+        Calculate the patrol route within the sector, adjusted for the sector's origin.
 
         :return: List of positions representing the patrol route.
         """
         route = []
-        visited = set()
-        stack = []
-        start_pos = random.choice(list(self.sector))
-        stack.append(start_pos)
-        visited.add(start_pos)
-
-        while stack:
-            current_pos = stack.pop()
-            route.append(current_pos)
-
-            # Get directions in the group's order
-            found_next = False
-            for move in self.group.direction_order:
-                dr, dc = move
-                next_pos = (current_pos[0] + dr, current_pos[1] + dc)
-                if next_pos in self.sector and next_pos not in visited:
-                    stack.append(next_pos)
-                    visited.add(next_pos)
-                    found_next = True
-                    break  # Only add one next position to ensure moving to adjacent square
-
-            if not found_next:
-                # Try other directions if no move found in group's direction order
-                for dr, dc in DIRECTIONS:
-                    next_pos = (current_pos[0] + dr, current_pos[1] + dc)
-                    if next_pos in self.sector and next_pos not in visited:
-                        stack.append(next_pos)
-                        visited.add(next_pos)
-                        break  # Only add one next position
-
+        for rel_pos in self.group.patrol_route:
+            abs_pos = (self.sector_origin[0] + rel_pos[0], self.sector_origin[1] + rel_pos[1])
+            route.append(abs_pos)
         return route
 
     def move(self):
@@ -216,24 +123,6 @@ class Drone:
             self.direction *= -1  # Reverse direction
             next_index = self.route_index + self.direction
 
-        next_position = self.patrol_route[next_index]
-
-        # Ensure the drone does not stay in the same square
-        if next_position == self.position:
-            # Find the next different position in the current direction
-            temp_index = next_index
-            while 0 <= temp_index < self.route_length and self.patrol_route[temp_index] == self.position:
-                temp_index += self.direction
-            if 0 <= temp_index < self.route_length:
-                next_index = temp_index
-            else:
-                # Can't find a different position in current direction; reverse direction
-                self.direction *= -1
-                next_index = self.route_index + self.direction
-                if next_index < 0 or next_index >= self.route_length:
-                    print(f"Error: Drone {self.symbol} cannot move; patrol route exhausted.")
-                    return
-
         self.route_index = next_index
         self.position = self.patrol_route[self.route_index]
 
@@ -247,24 +136,39 @@ def initialize_game():
     player_pos = PLAYER_START_POS
     end_pos = END_POS
 
-    # Generate sectors for drones
-    sectors = generate_sectors()
-
-    # Define direction orders for each drone group
-    direction_orders = [
-        [ (0, 1), (1, 0), (0, -1), (-1, 0) ],  # Group 0: Right, Down, Left, Up
-        [ (1, 0), (0, 1), (-1, 0), (0, -1) ],  # Group 1: Down, Right, Up, Left
-        [ (0, 1), (0, -1) ],                   # Group 2: Right, Left
-        [ (1, 0), (-1, 0) ],                   # Group 3: Down, Up
-        [ (1, 1), (-1, -1) ]                   # Group 4: Diagonal moves
+    # Define sector shapes and patrol routes for each drone group
+    group_definitions = [
+        {
+            'symbol': 'T1',
+            'sector_shape': [(0, 0), (0, 1), (1, 0), (1, 1)],  # 2x2 square
+            'patrol_route': [(0, 0), (0, 1), (1, 1), (1, 0)]  # Loop around the square
+        },
+        {
+            'symbol': 'T2',
+            'sector_shape': [(0, 0), (0, 1), (0, 2)],  # Horizontal line of 3 squares
+            'patrol_route': [(0, 0), (0, 1), (0, 2), (0, 1)]  # Back and forth
+        },
+        {
+            'symbol': 'T3',
+            'sector_shape': [(0, 0), (1, 0), (2, 0)],  # Vertical line of 3 squares
+            'patrol_route': [(0, 0), (1, 0), (2, 0), (1, 0)]  # Up and down
+        },
+        {
+            'symbol': 'T4',
+            'sector_shape': [(0, 0), (1, 0), (1, 1)],  # L-shape
+            'patrol_route': [(0, 0), (1, 0), (1, 1), (1, 0)]  # Loop around the L
+        },
+        {
+            'symbol': 'T5',
+            'sector_shape': [(0, 1), (1, 0), (1, 1), (1, 2)],  # T-shape
+            'patrol_route': [(1, 0), (1, 1), (1, 2), (0, 1), (1, 1)]  # Traverse the T
+        }
     ]
 
     # Create drone groups
     drone_groups = []
-    for i in range(NUM_DRONE_GROUPS):
-        symbol = DRONE_SYMBOLS[i % len(DRONE_SYMBOLS)]
-        direction_order = direction_orders[i % len(direction_orders)]
-        group = DroneGroup(symbol, direction_order)
+    for group_def in group_definitions:
+        group = DroneGroup(group_def['symbol'], group_def['sector_shape'], group_def['patrol_route'])
         drone_groups.append(group)
 
     # Distribute drones among groups
@@ -274,27 +178,32 @@ def initialize_game():
 
     # Initialize drones and assign sectors
     drones = []
-    sector_index = 0
+    assigned_positions = set([PLAYER_START_POS])  # Positions already assigned to sectors
     for i, group in enumerate(drone_groups):
         num_drones_in_group = drones_per_group[i]
         for _ in range(num_drones_in_group):
-            if sector_index >= len(sectors):
-                break  # No more sectors to assign
-            sector = sectors[sector_index]
-            sector_index += 1
-            drone = Drone(group, sector)
+            # Find a valid sector origin
+            sector_placed = False
+            for attempt in range(100):  # Limit attempts to prevent infinite loops
+                max_row = GRID_SIZE - max(r for r, c in group.sector_shape)
+                max_col = GRID_SIZE - max(c for r, c in group.sector_shape)
+                origin_row = random.randint(0, max_row - 1)
+                origin_col = random.randint(0, max_col - 1)
+                sector_origin = (origin_row, origin_col)
+                sector = set((sector_origin[0] + r, sector_origin[1] + c) for r, c in group.sector_shape)
 
-            # Ensure drone does not start at the player's position or adjacent to it
-            if drone.position == player_pos or is_adjacent_to_player_start(drone.position):
-                for idx in range(len(drone.patrol_route)):
-                    pos = drone.patrol_route[idx]
-                    if pos != player_pos and not is_adjacent_to_player_start(pos):
-                        drone.route_index = idx
-                        drone.position = pos
-                        break
+                # Check if sector overlaps with assigned positions or is adjacent to player start
+                if sector.isdisjoint(assigned_positions) and not any(is_adjacent_to_player_start(pos) for pos in sector):
+                    assigned_positions.update(sector)
+                    drone = Drone(group, sector_origin)
+                    drones.append(drone)
+                    group.drones.append(drone)
+                    sector_placed = True
+                    break
 
-            drones.append(drone)
-            group.drones.append(drone)
+            if not sector_placed:
+                print(f"Warning: Could not place a sector for drone in group {group.symbol}")
+                continue
 
     return player_pos, end_pos, drones
 
@@ -339,7 +248,7 @@ def draw_grid(player_pos, end_pos, drones):
     for idx, row in enumerate(grid):
         row_str = f"{idx:2} | " + " ".join([f"{cell:2}" for cell in row])
         print(row_str)
-    print("\nLegend: P=Player, E=End, D/E/F/G/H= Drone Groups, *=Multiple Drones, .=Empty")
+    print("\nLegend: P=Player, X=End, T1/T2/T3/T4/T5= Drone Groups, *=Multiple Drones, .=Empty")
 
 def get_player_move():
     """
