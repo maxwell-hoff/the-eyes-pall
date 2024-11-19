@@ -1,6 +1,8 @@
 import os
 import time
 import random
+from flask import Flask, render_template, request, session, jsonify
+from flask_session import Session
 
 # --------------------- Configurable Parameters ---------------------
 
@@ -52,6 +54,37 @@ def is_adjacent_to_player_start(pos, distance=1):
     :return: Boolean indicating if position is within the threshold.
     """
     return abs(pos[0] - PLAYER_START_POS[0]) + abs(pos[1] - PLAYER_START_POS[1]) <= distance
+
+# --------------------- Game Definitions ---------------------
+
+# Define sector shapes and patrol routes for each drone group globally
+GROUP_DEFINITIONS = [
+    {
+        'symbol': 'T1',
+        'sector_shape': [(0, 0), (0, 1), (1, 0), (1, 1)],  # 2x2 square
+        'patrol_route': [(0, 0), (0, 1), (1, 1), (1, 0)]  # Loop around the square
+    },
+    {
+        'symbol': 'T2',
+        'sector_shape': [(0, 0), (0, 1), (0, 2)],  # Horizontal line of 3 squares
+        'patrol_route': [(0, 0), (0, 1), (0, 2), (0, 1)]  # Back and forth
+    },
+    {
+        'symbol': 'T3',
+        'sector_shape': [(0, 0), (1, 0), (2, 0)],  # Vertical line of 3 squares
+        'patrol_route': [(0, 0), (1, 0), (2, 0), (1, 0)]  # Up and down
+    },
+    {
+        'symbol': 'T4',
+        'sector_shape': [(0, 0), (1, 0), (1, 1)],  # L-shape
+        'patrol_route': [(0, 0), (1, 0), (1, 1), (1, 0)]  # Loop around the L
+    },
+    {
+        'symbol': 'T5',
+        'sector_shape': [(0, 1), (1, 0), (1, 1), (1, 2)],  # T-shape
+        'patrol_route': [(1, 0), (1, 1), (1, 2), (0, 1), (1, 1)]  # Traverse the T
+    }
+]
 
 class DroneGroup:
     def __init__(self, symbol, sector_shape, patrol_route):
@@ -106,7 +139,14 @@ class Drone:
         route = []
         for rel_pos in self.group.patrol_route:
             abs_pos = (self.sector_origin[0] + rel_pos[0], self.sector_origin[1] + rel_pos[1])
-            route.append(abs_pos)
+            # Ensure patrol route is within grid boundaries
+            if 0 <= abs_pos[0] < GRID_SIZE and 0 <= abs_pos[1] < GRID_SIZE:
+                route.append(abs_pos)
+            else:
+                # If out of bounds, adjust to stay within grid
+                clamped_r = max(0, min(GRID_SIZE - 1, abs_pos[0]))
+                clamped_c = max(0, min(GRID_SIZE - 1, abs_pos[1]))
+                route.append((clamped_r, clamped_c))
         return route
 
     def move(self):
@@ -127,6 +167,8 @@ class Drone:
         self.route_index = next_index
         self.position = self.patrol_route[self.route_index]
 
+# --------------------- Game Initialization ---------------------
+
 def initialize_game():
     """
     Initialize the game state with drones and their patrol routes.
@@ -137,38 +179,9 @@ def initialize_game():
     player_pos = PLAYER_START_POS
     end_pos = END_POS
 
-    # Define sector shapes and patrol routes for each drone group
-    group_definitions = [
-        {
-            'symbol': 'T1',
-            'sector_shape': [(0, 0), (0, 1), (1, 0), (1, 1)],  # 2x2 square
-            'patrol_route': [(0, 0), (0, 1), (1, 1), (1, 0)]  # Loop around the square
-        },
-        {
-            'symbol': 'T2',
-            'sector_shape': [(0, 0), (0, 1), (0, 2)],  # Horizontal line of 3 squares
-            'patrol_route': [(0, 0), (0, 1), (0, 2), (0, 1)]  # Back and forth
-        },
-        {
-            'symbol': 'T3',
-            'sector_shape': [(0, 0), (1, 0), (2, 0)],  # Vertical line of 3 squares
-            'patrol_route': [(0, 0), (1, 0), (2, 0), (1, 0)]  # Up and down
-        },
-        {
-            'symbol': 'T4',
-            'sector_shape': [(0, 0), (1, 0), (1, 1)],  # L-shape
-            'patrol_route': [(0, 0), (1, 0), (1, 1), (1, 0)]  # Loop around the L
-        },
-        {
-            'symbol': 'T5',
-            'sector_shape': [(0, 1), (1, 0), (1, 1), (1, 2)],  # T-shape
-            'patrol_route': [(1, 0), (1, 1), (1, 2), (0, 1), (1, 1)]  # Traverse the T
-        }
-    ]
-
     # Create drone groups
     drone_groups = []
-    for group_def in group_definitions:
+    for group_def in GROUP_DEFINITIONS:
         group = DroneGroup(group_def['symbol'], group_def['sector_shape'], group_def['patrol_route'])
         drone_groups.append(group)
 
@@ -180,6 +193,7 @@ def initialize_game():
     # Initialize drones and assign sectors
     drones = []
     assigned_positions = set([PLAYER_START_POS])  # Positions already assigned to sectors
+
     for i, group in enumerate(drone_groups):
         num_drones_in_group = drones_per_group[i]
         for _ in range(num_drones_in_group):
@@ -188,6 +202,8 @@ def initialize_game():
             for attempt in range(100):  # Limit attempts to prevent infinite loops
                 max_row = GRID_SIZE - max(r for r, c in group.sector_shape)
                 max_col = GRID_SIZE - max(c for r, c in group.sector_shape)
+                if max_row <= 0 or max_col <= 0:
+                    continue  # Sector shape is too large for the grid
                 origin_row = random.randint(0, max_row - 1)
                 origin_col = random.randint(0, max_col - 1)
                 sector_origin = (origin_row, origin_col)
@@ -352,9 +368,6 @@ def play_cli():
 
 # --------------------- Flask Web Interface ---------------------
 
-from flask import Flask, render_template, request, session, redirect, url_for, jsonify
-from flask_session import Session
-
 app = Flask(__name__)
 app.secret_key = 'your-secret-key'  # Replace with a random secret key
 app.config['SESSION_TYPE'] = 'filesystem'
@@ -369,23 +382,47 @@ def index():
         session['end_pos'] = end_pos
         session['turn'] = 0
         session['max_turns'] = 200
-        session['drones'] = [(drone.group.symbol, drone.position, drone.route_index, drone.direction, drone.sector_origin) for drone in drones]
+        # Store drones as list of dicts for serialization
+        session['drones'] = [
+            {
+                'symbol': drone.symbol,
+                'position': drone.position,
+                'route_index': drone.route_index,
+                'direction': drone.direction,
+                'sector_origin': drone.sector_origin
+            } for drone in drones
+        ]
         session['game_over'] = False
-
+        session['message'] = ''
     return render_template('index.html')
 
 @app.route('/game_state', methods=['GET'])
 def get_game_state():
     player_pos = tuple(session['player_pos'])
     end_pos = tuple(session['end_pos'])
+    drones_data = session['drones']
     drones = []
-    for data in session['drones']:
-        symbol, position, route_index, direction, sector_origin = data
-        drone = Drone(next(group for group in create_drone_groups() if group.symbol == symbol), sector_origin)
-        drone.position = tuple(position)
+
+    # Reconstruct drone groups
+    drone_groups = {group_def['symbol']: DroneGroup(group_def['symbol'], group_def['sector_shape'], group_def['patrol_route']) for group_def in GROUP_DEFINITIONS}
+
+    # Reconstruct drones
+    for drone_data in drones_data:
+        symbol = drone_data['symbol']
+        position = tuple(drone_data['position'])
+        route_index = drone_data['route_index']
+        direction = drone_data['direction']
+        sector_origin = tuple(drone_data['sector_origin'])
+        group = drone_groups.get(symbol)
+        if not group:
+            continue  # Skip if group not found
+
+        drone = Drone(group, sector_origin)
+        drone.position = position
         drone.route_index = route_index
         drone.direction = direction
         drones.append(drone)
+
     grid = draw_grid(player_pos, end_pos, drones)
     return jsonify({
         'grid': grid,
@@ -394,71 +431,49 @@ def get_game_state():
         'message': session.get('message', '')
     })
 
-def create_drone_groups():
-    # Define sector shapes and patrol routes for each drone group
-    group_definitions = [
-        {
-            'symbol': 'T1',
-            'sector_shape': [(0, 0), (0, 1), (1, 0), (1, 1)],  # 2x2 square
-            'patrol_route': [(0, 0), (0, 1), (1, 1), (1, 0)]  # Loop around the square
-        },
-        {
-            'symbol': 'T2',
-            'sector_shape': [(0, 0), (0, 1), (0, 2)],  # Horizontal line of 3 squares
-            'patrol_route': [(0, 0), (0, 1), (0, 2), (0, 1)]  # Back and forth
-        },
-        {
-            'symbol': 'T3',
-            'sector_shape': [(0, 0), (1, 0), (2, 0)],  # Vertical line of 3 squares
-            'patrol_route': [(0, 0), (1, 0), (2, 0), (1, 0)]  # Up and down
-        },
-        {
-            'symbol': 'T4',
-            'sector_shape': [(0, 0), (1, 0), (1, 1)],  # L-shape
-            'patrol_route': [(0, 0), (1, 0), (1, 1), (1, 0)]  # Loop around the L
-        },
-        {
-            'symbol': 'T5',
-            'sector_shape': [(0, 1), (1, 0), (1, 1), (1, 2)],  # T-shape
-            'patrol_route': [(1, 0), (1, 1), (1, 2), (0, 1), (1, 1)]  # Traverse the T
-        }
-    ]
-
-    # Create drone groups
-    drone_groups = []
-    for group_def in group_definitions:
-        group = DroneGroup(group_def['symbol'], group_def['sector_shape'], group_def['patrol_route'])
-        drone_groups.append(group)
-    return drone_groups
-
 @app.route('/move', methods=['POST'])
 def move():
-    if session['game_over']:
-        return jsonify({'message': 'Game Over', 'game_over': True})
+    if session.get('game_over', False):
+        return jsonify({'message': session.get('message', 'Game Over'), 'game_over': True})
 
     data = request.get_json()
     move = data.get('move')
-    move_dir = DIRECTIONS.get(move.upper(), (0, 0))
+    move_dir = DIRECTIONS.get(move.upper(), DIRECTIONS['STAY'])
 
     player_pos = tuple(session['player_pos'])
     new_r = player_pos[0] + move_dir[0]
     new_c = player_pos[1] + move_dir[1]
 
+    # Check boundaries
     if not (0 <= new_r < GRID_SIZE and 0 <= new_c < GRID_SIZE):
         session['message'] = "🚫 Move out of bounds. Try again."
         return jsonify({'message': session['message']})
 
     player_pos = (new_r, new_c)
 
+    # Reconstruct drone groups
+    drone_groups = {group_def['symbol']: DroneGroup(group_def['symbol'], group_def['sector_shape'], group_def['patrol_route']) for group_def in GROUP_DEFINITIONS}
+
     # Reconstruct drones
     drones = []
-    for data in session['drones']:
-        symbol, position, route_index, direction, sector_origin = data
-        drone = Drone(next(group for group in create_drone_groups() if group.symbol == symbol), sector_origin)
-        drone.position = tuple(position)
+    for drone_data in session['drones']:
+        symbol = drone_data['symbol']
+        position = tuple(drone_data['position'])
+        route_index = drone_data['route_index']
+        direction = drone_data['direction']
+        sector_origin = tuple(drone_data['sector_origin'])
+        group = drone_groups.get(symbol)
+        if not group:
+            continue  # Skip if group not found
+
+        drone = Drone(group, sector_origin)
+        drone.position = position
         drone.route_index = route_index
         drone.direction = direction
         drones.append(drone)
+
+    # Update player's position
+    session['player_pos'] = player_pos
 
     # Check for collision after player's move
     if is_collision(player_pos, drones):
@@ -476,19 +491,59 @@ def move():
         session['message'] = "💥 A drone has moved into your square. Game Over. 💥"
         return jsonify({'message': session['message'], 'game_over': True})
 
-    # Update session data
-    session['player_pos'] = player_pos
-    session['drones'] = [(drone.group.symbol, drone.position, drone.route_index, drone.direction, drone.sector_origin) for drone in drones]
-    session['turn'] += 1
-
     # Check if player has reached the end
     if player_pos == tuple(session['end_pos']):
         session['game_over'] = True
         session['message'] = "🎉 Congratulations! You've reached the end and won the game! 🎉"
         return jsonify({'message': session['message'], 'game_over': True})
 
+    # Update drones in session
+    session['drones'] = [
+        {
+            'symbol': drone.symbol,
+            'position': drone.position,
+            'route_index': drone.route_index,
+            'direction': drone.direction,
+            'sector_origin': drone.sector_origin
+        } for drone in drones
+    ]
+
+    # Increment turn
+    session['turn'] += 1
+
+    # Optional: Check for max turns
+    if session['turn'] >= session.get('max_turns', 200):
+        session['game_over'] = True
+        session['message'] = "⏰ Maximum turns reached. Game Over."
+        return jsonify({'message': session['message'], 'game_over': True})
+
     session['message'] = ''
     return jsonify({'message': 'Move successful', 'game_over': False})
+
+# --------------------- Flask Initialization ---------------------
+
+@app.route('/reset', methods=['POST'])
+def reset():
+    """Reset the game state."""
+    player_pos, end_pos, drones = initialize_game()
+    session['player_pos'] = player_pos
+    session['end_pos'] = end_pos
+    session['turn'] = 0
+    session['max_turns'] = 200
+    session['drones'] = [
+        {
+            'symbol': drone.symbol,
+            'position': drone.position,
+            'route_index': drone.route_index,
+            'direction': drone.direction,
+            'sector_origin': drone.sector_origin
+        } for drone in drones
+    ]
+    session['game_over'] = False
+    session['message'] = ''
+    return jsonify({'message': 'Game has been reset.', 'game_over': False})
+
+# --------------------- Main Entry Point ---------------------
 
 if __name__ == '__main__':
     import sys
