@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Pall of the Eye - Web Version</title>
+    <title>The Eye's Pall</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -10,6 +10,7 @@
         #game-container {
             display: inline-block;
             margin: 20px;
+            position: relative; /* For absolute positioning */
         }
         .grid-row {
             display: flex;
@@ -22,6 +23,23 @@
             line-height: 30px;
             font-size: 14px;
             font-weight: bold;
+            position: relative; /* For absolute positioning of moving pieces */
+        }
+        .moving-piece {
+            position: absolute;
+            z-index: 10;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .moving-piece.player {
+            color: blue;
+        }
+        .moving-piece.drone {
+            color: red;
         }
         .legend {
             margin-top: 20px;
@@ -32,7 +50,7 @@
     </style>
 </head>
 <body>
-    <h1>Pall of the Eye - Web Version</h1>
+    <h1>The Eye's Pall</h1>
     <p>Use arrow keys to move. Press Enter to skip a turn. Reach the 'X' to win.</p>
     <div id="game-container"></div>
     <div id="message"></div>

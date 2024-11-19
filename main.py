@@ -435,7 +435,14 @@ def get_game_state():
         'grid': grid,
         'turn': session['turn'],
         'game_over': session['game_over'],
-        'message': session.get('message', '')
+        'message': session.get('message', ''),
+        'player_pos': session['player_pos'],
+        'drones': [
+            {
+                'symbol': drone_data['symbol'],
+                'position': drone_data['position']
+            } for drone_data in session['drones']
+        ]
     })
 
 @app.route('/move', methods=['POST'])
@@ -448,6 +455,8 @@ def move():
     move_dir = DIRECTIONS.get(move.upper(), DIRECTIONS['STAY'])
 
     player_pos = tuple(session['player_pos'])
+    old_player_pos = player_pos  # Record old position
+
     new_r = player_pos[0] + move_dir[0]
     new_c = player_pos[1] + move_dir[1]
 
@@ -488,23 +497,67 @@ def move():
     if is_collision(player_pos, drones):
         session['game_over'] = True
         session['message'] = "💥 Oh no! You've been caught by a drone. Game Over. 💥"
-        return jsonify({'message': session['message'], 'game_over': True})
+        return jsonify({
+            'message': session['message'],
+            'game_over': True,
+            'player_move': {'from': old_player_pos, 'to': player_pos}
+        })
+
+    # Record drone movements
+    drone_moves = []
 
     # Move drones
     for drone in drones:
+        old_pos = drone.position
         drone.move()
+        new_pos = drone.position
+        drone_moves.append({
+            'symbol': drone.symbol,
+            'from': old_pos,
+            'to': new_pos
+        })
 
     # Check for collision after drones' move
     if is_collision(player_pos, drones):
         session['game_over'] = True
         session['message'] = "💥 A drone has moved into your square. Game Over. 💥"
-        return jsonify({'message': session['message'], 'game_over': True})
+        # Update drones in session
+        session['drones'] = [
+            {
+                'symbol': drone.symbol,
+                'position': drone.position,
+                'route_index': drone.route_index,
+                'direction': drone.direction,
+                'sector_origin': drone.sector_origin
+            } for drone in drones
+        ]
+        return jsonify({
+            'message': session['message'],
+            'game_over': True,
+            'player_move': {'from': old_player_pos, 'to': player_pos},
+            'drone_moves': drone_moves
+        })
 
     # Check if player has reached the end
     if player_pos == tuple(session['end_pos']):
         session['game_over'] = True
         session['message'] = "🎉 Congratulations! You've reached the end and won the game! 🎉"
-        return jsonify({'message': session['message'], 'game_over': True})
+        # Update drones in session
+        session['drones'] = [
+            {
+                'symbol': drone.symbol,
+                'position': drone.position,
+                'route_index': drone.route_index,
+                'direction': drone.direction,
+                'sector_origin': drone.sector_origin
+            } for drone in drones
+        ]
+        return jsonify({
+            'message': session['message'],
+            'game_over': True,
+            'player_move': {'from': old_player_pos, 'to': player_pos},
+            'drone_moves': drone_moves
+        })
 
     # Update drones in session
     session['drones'] = [
@@ -524,10 +577,20 @@ def move():
     if session['turn'] >= session.get('max_turns', 200):
         session['game_over'] = True
         session['message'] = "⏰ Maximum turns reached. Game Over."
-        return jsonify({'message': session['message'], 'game_over': True})
+        return jsonify({
+            'message': session['message'],
+            'game_over': True,
+            'player_move': {'from': old_player_pos, 'to': player_pos},
+            'drone_moves': drone_moves
+        })
 
     session['message'] = ''
-    return jsonify({'message': 'Move successful', 'game_over': False})
+    return jsonify({
+        'message': 'Move successful',
+        'game_over': False,
+        'player_move': {'from': old_player_pos, 'to': player_pos},
+        'drone_moves': drone_moves
+    })
 
 # --------------------- Flask Initialization ---------------------
 
