@@ -119,16 +119,19 @@ function animateMovements(data) {
     const animations = [];
 
     // Player movement
-    if (playerMove) {
+    if (playerMove && (playerMove.from[0] !== playerMove.to[0] || playerMove.from[1] !== playerMove.to[1])) {
         const fromCell = gridCells[playerMove.from[0]][playerMove.from[1]];
         const toCell = gridCells[playerMove.to[0]][playerMove.to[1]];
 
-        animations.push(animateMove(fromCell, toCell, 'player'));
+        animations.push(animateMove(fromCell, toCell, 'player', 'P'));
     }
 
     // Drone movements
     if (droneMoves) {
         droneMoves.forEach(droneMove => {
+            if (droneMove.from[0] === droneMove.to[0] && droneMove.from[1] === droneMove.to[1]) {
+                return; // Skip if the drone didn't move
+            }
             const fromCell = gridCells[droneMove.from[0]][droneMove.from[1]];
             const toCell = gridCells[droneMove.to[0]][droneMove.to[1]];
 
@@ -138,7 +141,8 @@ function animateMovements(data) {
 
     // Wait for all animations to complete before updating the grid
     Promise.all(animations).then(() => {
-        fetchGameState(); // Update the grid after animations
+        // Update the grid after animations
+        fetchGameState();
     });
 }
 
@@ -146,11 +150,7 @@ function animateMove(fromCell, toCell, type, symbol = '') {
     return new Promise(resolve => {
         const movingElement = document.createElement('div');
         movingElement.className = 'moving-piece ' + type;
-        if (type === 'drone') {
-            movingElement.innerText = symbol;
-        } else {
-            movingElement.innerText = fromCell.innerText;
-        }
+        movingElement.innerText = symbol;
 
         const container = document.getElementById('game-container');
         container.appendChild(movingElement);
