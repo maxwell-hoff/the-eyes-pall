@@ -121,10 +121,24 @@ function animateMovements(data) {
 
     // Player movement
     if (playerMove && (playerMove.from[0] !== playerMove.to[0] || playerMove.from[1] !== playerMove.to[1])) {
-        const fromCell = gridCells[playerMove.from[0]][playerMove.from[1]];
-        const toCell = gridCells[playerMove.to[0]][playerMove.to[1]];
+        const fromPos = playerMove.from;
+        const toPos = playerMove.to;
 
-        animations.push(animateMove(fromCell, toCell, 'player', 'P'));
+        // Check if positions are within grid boundaries
+        if (isWithinGrid(fromPos) && isWithinGrid(toPos)) {
+            const fromCell = gridCells[fromPos[0]][fromPos[1]];
+            const toCell = gridCells[toPos[0]][toPos[1]];
+
+            animations.push(animateMove(fromCell, toCell, 'player', 'P'));
+        } else if (!isWithinGrid(fromPos) && isWithinGrid(toPos)) {
+            // Player is entering the grid
+            const toCell = gridCells[toPos[0]][toPos[1]];
+            animations.push(animateMove(null, toCell, 'player', 'P'));
+        } else if (isWithinGrid(fromPos) && !isWithinGrid(toPos)) {
+            // Player is leaving the grid
+            const fromCell = gridCells[fromPos[0]][fromPos[1]];
+            animations.push(animateMove(fromCell, null, 'player', 'P'));
+        }
     }
 
     // Drone movements
@@ -149,10 +163,6 @@ function animateMovements(data) {
 
 function animateMove(fromCell, toCell, type, symbol = '') {
     return new Promise(resolve => {
-        // Clear the symbol from the fromCell and toCell to avoid duplication during animation
-        fromCell.innerText = EMPTY_SYMBOL;
-        toCell.innerText = EMPTY_SYMBOL;
-
         const movingElement = document.createElement('div');
         movingElement.className = 'moving-piece ' + type;
         movingElement.innerText = symbol;
@@ -162,16 +172,22 @@ function animateMove(fromCell, toCell, type, symbol = '') {
 
         // Get positions
         const containerRect = container.getBoundingClientRect();
-        const fromRect = fromCell.getBoundingClientRect();
-        const toRect = toCell.getBoundingClientRect();
 
-        // Set initial position relative to container
-        movingElement.style.position = 'absolute';
-        movingElement.style.left = (fromRect.left - containerRect.left) + 'px';
-        movingElement.style.top = (fromRect.top - containerRect.top) + 'px';
-        movingElement.style.width = fromRect.width + 'px';
-        movingElement.style.height = fromRect.height + 'px';
-        movingElement.style.lineHeight = fromRect.height + 'px';
+        // Set initial position
+        if (fromCell) {
+            const fromRect = fromCell.getBoundingClientRect();
+            movingElement.style.left = (fromRect.left - containerRect.left) + 'px';
+            movingElement.style.top = (fromRect.top - containerRect.top) + 'px';
+            fromCell.innerText = EMPTY_SYMBOL;
+        } else {
+            // Starting from outside the grid
+            movingElement.style.left = '-30px';
+            movingElement.style.top = '0px';
+        }
+
+        movingElement.style.width = '30px';
+        movingElement.style.height = '30px';
+        movingElement.style.lineHeight = '30px';
         movingElement.style.textAlign = 'center';
 
         // Trigger reflow for CSS transition
@@ -181,8 +197,16 @@ function animateMove(fromCell, toCell, type, symbol = '') {
         movingElement.style.transition = 'all 0.5s linear';
 
         // Move to new position
-        movingElement.style.left = (toRect.left - containerRect.left) + 'px';
-        movingElement.style.top = (toRect.top - containerRect.top) + 'px';
+        if (toCell) {
+            const toRect = toCell.getBoundingClientRect();
+            movingElement.style.left = (toRect.left - containerRect.left) + 'px';
+            movingElement.style.top = (toRect.top - containerRect.top) + 'px';
+            toCell.innerText = EMPTY_SYMBOL;
+        } else {
+            // Moving outside the grid
+            movingElement.style.left = '-30px';
+            movingElement.style.top = '0px';
+        }
 
         // After transition, remove movingElement
         movingElement.addEventListener('transitionend', () => {
@@ -190,4 +214,8 @@ function animateMove(fromCell, toCell, type, symbol = '') {
             resolve();
         });
     });
+}
+
+function isWithinGrid(pos) {
+    return pos[0] >= 0 && pos[0] < gridCells.length && pos[1] >= 0 && pos[1] < gridCells[0].length;
 }

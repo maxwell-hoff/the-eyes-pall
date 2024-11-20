@@ -7,11 +7,13 @@ from flask_session import Session
 # --------------------- Configurable Parameters ---------------------
 
 # Grid Configuration
-GRID_SIZE = 10  # Size of the grid (10x10)
+GRID_ROWS = 10  # Number of rows in the grid
+GRID_COLS = 15  # Number of columns in the grid
 
 # Player Configuration
-PLAYER_START_POS = (0, 0)  # Starting position of the player
-END_POS = (GRID_SIZE - 1, GRID_SIZE - 1)  # End position
+# Starting position of the player outside the grid (e.g., (-1, 0))
+PLAYER_START_POS = (-1, 1)  # Player starts above the first row
+END_POS = (GRID_ROWS - 1, GRID_COLS - 1)  # End position inside the grid
 
 # Drone Configuration
 NUM_DRONES = 25          # Total number of drones
@@ -136,12 +138,12 @@ class Drone:
         for rel_pos in self.group.patrol_route:
             abs_pos = (self.sector_origin[0] + rel_pos[0], self.sector_origin[1] + rel_pos[1])
             # Ensure patrol route is within grid boundaries
-            if 0 <= abs_pos[0] < GRID_SIZE and 0 <= abs_pos[1] < GRID_SIZE:
+            if 0 <= abs_pos[0] < GRID_ROWS and 0 <= abs_pos[1] < GRID_COLS:
                 route.append(abs_pos)
             else:
                 # If out of bounds, adjust to stay within grid
-                clamped_r = max(0, min(GRID_SIZE - 1, abs_pos[0]))
-                clamped_c = max(0, min(GRID_SIZE - 1, abs_pos[1]))
+                clamped_r = max(0, min(GRID_ROWS - 1, abs_pos[0]))
+                clamped_c = max(0, min(GRID_COLS - 1, abs_pos[1]))
                 route.append((clamped_r, clamped_c))
         return route
 
@@ -188,7 +190,7 @@ def initialize_game():
 
     # Initialize drones and assign sectors
     drones = []
-    assigned_positions = set([PLAYER_START_POS])  # Positions already assigned to sectors
+    assigned_positions = set()  # Positions already assigned to sectors
 
     # Set the random seed for reproducibility
     if RANDOM_SEED is not None:
@@ -200,8 +202,8 @@ def initialize_game():
             # Find a valid sector origin
             sector_placed = False
             for attempt in range(100):  # Limit attempts to prevent infinite loops
-                max_row = GRID_SIZE - max(r for r, c in group.sector_shape)
-                max_col = GRID_SIZE - max(c for r, c in group.sector_shape)
+                max_row = GRID_ROWS - max(r for r, c in group.sector_shape)
+                max_col = GRID_COLS - max(c for r, c in group.sector_shape)
                 if max_row <= 0 or max_col <= 0:
                     continue  # Sector shape is too large for the grid
                 origin_row = random.randint(0, max_row - 1)
@@ -233,7 +235,7 @@ def draw_grid(player_pos, end_pos, drones):
     :param drones: List of Drone objects.
     :return: List of lists representing the grid.
     """
-    grid = [[EMPTY_SYMBOL for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+    grid = [[EMPTY_SYMBOL for _ in range(GRID_COLS)] for _ in range(GRID_ROWS)]
 
     # Place the end position
     er, ec = end_pos
@@ -256,16 +258,17 @@ def draw_grid(player_pos, end_pos, drones):
         else:
             grid[r][c] = '*'  # Indicate multiple drones
 
-    # Place the player
+    # Place the player if within grid boundaries
     pr, pc = player_pos
-    grid[pr][pc] = PLAYER_SYMBOL
+    if 0 <= pr < GRID_ROWS and 0 <= pc < GRID_COLS:
+        grid[pr][pc] = PLAYER_SYMBOL
 
     return grid
 
 def print_grid(grid):
     """Print the grid to the console."""
     # Print the grid with row and column indices
-    header = "    " + " ".join([f"{c:2}" for c in range(GRID_SIZE)])
+    header = "    " + " ".join([f"{c:2}" for c in range(GRID_COLS)])
     print(header)
     for idx, row in enumerate(grid):
         row_str = f"{idx:2} | " + " ".join([f"{cell:2}" for cell in row])
@@ -308,7 +311,7 @@ def is_collision(player_pos, drones):
 
 def play_cli():
     """Play the game using the command-line interface."""
-    print("Welcome to 'Pall of the Eye' - Drone Group Patrol Edition!")
+    print("Welcome to 'The Eye's Pall' - Drone Group Patrol Edition!")
 
     # Initialize the game
     player_pos, end_pos, drones = initialize_game()
@@ -332,35 +335,38 @@ def play_cli():
         new_r = player_pos[0] + move[0]
         new_c = player_pos[1] + move[1]
 
+        # Update player position
+        player_pos = (new_r, new_c)
+
         # Check boundaries
-        if 0 <= new_r < GRID_SIZE and 0 <= new_c < GRID_SIZE:
-            player_pos = (new_r, new_c)
-        else:
+        if not (-1 <= new_r <= GRID_ROWS) or not (-1 <= new_c <= GRID_COLS):
             print("🚫 Move out of bounds. Try again.")
             time.sleep(1)
             continue
 
-        # Check for collision after player's move
-        if is_collision(player_pos, drones):
-            clear_screen()
-            print(f"Turn: {turn + 1}")
-            grid = draw_grid(player_pos, end_pos, drones)
-            print_grid(grid)
-            print("💥 Oh no! You've been caught by a drone. Game Over. 💥")
-            return
+        # Check for collision after player's move (only if inside the grid)
+        if 0 <= new_r < GRID_ROWS and 0 <= new_c < GRID_COLS:
+            if is_collision(player_pos, drones):
+                clear_screen()
+                print(f"Turn: {turn + 1}")
+                grid = draw_grid(player_pos, end_pos, drones)
+                print_grid(grid)
+                print("💥 Oh no! You've been caught by a drone. Game Over. 💥")
+                return
 
         # Move drones
         for drone in drones:
             drone.move()
 
-        # Check for collision after drones' move
-        if is_collision(player_pos, drones):
-            clear_screen()
-            print(f"Turn: {turn + 1}")
-            grid = draw_grid(player_pos, end_pos, drones)
-            print_grid(grid)
-            print("💥 A drone has moved into your square. Game Over. 💥")
-            return
+        # Check for collision after drones' move (only if player is inside the grid)
+        if 0 <= player_pos[0] < GRID_ROWS and 0 <= player_pos[1] < GRID_COLS:
+            if is_collision(player_pos, drones):
+                clear_screen()
+                print(f"Turn: {turn + 1}")
+                grid = draw_grid(player_pos, end_pos, drones)
+                print_grid(grid)
+                print("💥 A drone has moved into your square. Game Over. 💥")
+                return
 
         turn += 1
 
@@ -460,12 +466,16 @@ def move():
     new_r = player_pos[0] + move_dir[0]
     new_c = player_pos[1] + move_dir[1]
 
+    # Update player position
+    player_pos = (new_r, new_c)
+
     # Check boundaries
-    if not (0 <= new_r < GRID_SIZE and 0 <= new_c < GRID_SIZE):
+    if not (-1 <= new_r <= GRID_ROWS) or not (-1 <= new_c <= GRID_COLS):
         session['message'] = "🚫 Move out of bounds. Try again."
         return jsonify({'message': session['message']})
 
-    player_pos = (new_r, new_c)
+    # Update player's position
+    session['player_pos'] = player_pos
 
     # Reconstruct drone groups
     drone_groups = {group_def['symbol']: DroneGroup(
@@ -490,18 +500,16 @@ def move():
         drone.direction = direction
         drones.append(drone)
 
-    # Update player's position
-    session['player_pos'] = player_pos
-
-    # Check for collision after player's move
-    if is_collision(player_pos, drones):
-        session['game_over'] = True
-        session['message'] = "💥 Oh no! You've been caught by a drone. Game Over. 💥"
-        return jsonify({
-            'message': session['message'],
-            'game_over': True,
-            'player_move': {'from': old_player_pos, 'to': player_pos}
-        })
+    # Check for collision after player's move (only if inside the grid)
+    if 0 <= new_r < GRID_ROWS and 0 <= new_c < GRID_COLS:
+        if is_collision(player_pos, drones):
+            session['game_over'] = True
+            session['message'] = "💥 Oh no! You've been caught by a drone. Game Over. 💥"
+            return jsonify({
+                'message': session['message'],
+                'game_over': True,
+                'player_move': {'from': old_player_pos, 'to': player_pos}
+            })
 
     # Record drone movements
     drone_moves = []
@@ -517,26 +525,27 @@ def move():
             'to': new_pos
         })
 
-    # Check for collision after drones' move
-    if is_collision(player_pos, drones):
-        session['game_over'] = True
-        session['message'] = "💥 A drone has moved into your square. Game Over. 💥"
-        # Update drones in session
-        session['drones'] = [
-            {
-                'symbol': drone.symbol,
-                'position': drone.position,
-                'route_index': drone.route_index,
-                'direction': drone.direction,
-                'sector_origin': drone.sector_origin
-            } for drone in drones
-        ]
-        return jsonify({
-            'message': session['message'],
-            'game_over': True,
-            'player_move': {'from': old_player_pos, 'to': player_pos},
-            'drone_moves': drone_moves
-        })
+    # Check for collision after drones' move (only if player is inside the grid)
+    if 0 <= player_pos[0] < GRID_ROWS and 0 <= player_pos[1] < GRID_COLS:
+        if is_collision(player_pos, drones):
+            session['game_over'] = True
+            session['message'] = "💥 A drone has moved into your square. Game Over. 💥"
+            # Update drones in session
+            session['drones'] = [
+                {
+                    'symbol': drone.symbol,
+                    'position': drone.position,
+                    'route_index': drone.route_index,
+                    'direction': drone.direction,
+                    'sector_origin': drone.sector_origin
+                } for drone in drones
+            ]
+            return jsonify({
+                'message': session['message'],
+                'game_over': True,
+                'player_move': {'from': old_player_pos, 'to': player_pos},
+                'drone_moves': drone_moves
+            })
 
     # Check if player has reached the end
     if player_pos == tuple(session['end_pos']):
