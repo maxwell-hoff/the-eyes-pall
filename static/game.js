@@ -1,6 +1,7 @@
 let gameOver = false;
 let gridCells = [];
 const EMPTY_SYMBOL = '.'; // Define EMPTY_SYMBOL
+const START_BOX_SYMBOL = 'S'; // Define START_BOX_SYMBOL if needed
 
 document.addEventListener('DOMContentLoaded', () => {
     fetchGameState(true);
@@ -124,21 +125,14 @@ function animateMovements(data) {
         const fromPos = playerMove.from;
         const toPos = playerMove.to;
 
-        // Check if positions are within grid boundaries
-        if (isWithinGrid(fromPos) && isWithinGrid(toPos)) {
-            const fromCell = gridCells[fromPos[0]][fromPos[1]];
-            const toCell = gridCells[toPos[0]][toPos[1]];
+        // Adjust indices if grid has extra rows/columns
+        const rowOffset = fromPos[0] === -1 || toPos[0] === -1 ? 1 : 0;
+        const colOffset = fromPos[1] === -1 || toPos[1] === -1 ? 1 : 0;
 
-            animations.push(animateMove(fromCell, toCell, 'player', 'P'));
-        } else if (!isWithinGrid(fromPos) && isWithinGrid(toPos)) {
-            // Player is entering the grid
-            const toCell = gridCells[toPos[0]][toPos[1]];
-            animations.push(animateMove(null, toCell, 'player', 'P'));
-        } else if (isWithinGrid(fromPos) && !isWithinGrid(toPos)) {
-            // Player is leaving the grid
-            const fromCell = gridCells[fromPos[0]][fromPos[1]];
-            animations.push(animateMove(fromCell, null, 'player', 'P'));
-        }
+        const fromCell = getCell(fromPos[0] + rowOffset, fromPos[1] + colOffset);
+        const toCell = getCell(toPos[0] + rowOffset, toPos[1] + colOffset);
+
+        animations.push(animateMove(fromCell, toCell, 'player', 'P'));
     }
 
     // Drone movements
@@ -147,8 +141,8 @@ function animateMovements(data) {
             if (droneMove.from[0] === droneMove.to[0] && droneMove.from[1] === droneMove.to[1]) {
                 return; // Skip if the drone didn't move
             }
-            const fromCell = gridCells[droneMove.from[0]][droneMove.from[1]];
-            const toCell = gridCells[droneMove.to[0]][droneMove.to[1]];
+            const fromCell = getCell(droneMove.from[0] + 1, droneMove.from[1]);
+            const toCell = getCell(droneMove.to[0] + 1, droneMove.to[1]);
 
             animations.push(animateMove(fromCell, toCell, 'drone', droneMove.symbol));
         });
@@ -159,6 +153,13 @@ function animateMovements(data) {
         // Update the grid after animations
         fetchGameState();
     });
+}
+
+function getCell(rowIndex, colIndex) {
+    if (rowIndex >= 0 && rowIndex < gridCells.length && colIndex >= 0 && colIndex < gridCells[0].length) {
+        return gridCells[rowIndex][colIndex];
+    }
+    return null;
 }
 
 function animateMove(fromCell, toCell, type, symbol = '') {
@@ -180,7 +181,7 @@ function animateMove(fromCell, toCell, type, symbol = '') {
             movingElement.style.top = (fromRect.top - containerRect.top) + 'px';
             fromCell.innerText = EMPTY_SYMBOL;
         } else {
-            // Starting from outside the grid
+            // Starting from outside the grid (adjust as needed)
             movingElement.style.left = '-30px';
             movingElement.style.top = '0px';
         }
@@ -203,7 +204,7 @@ function animateMove(fromCell, toCell, type, symbol = '') {
             movingElement.style.top = (toRect.top - containerRect.top) + 'px';
             toCell.innerText = EMPTY_SYMBOL;
         } else {
-            // Moving outside the grid
+            // Moving outside the grid (adjust as needed)
             movingElement.style.left = '-30px';
             movingElement.style.top = '0px';
         }

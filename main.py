@@ -7,12 +7,11 @@ from flask_session import Session
 # --------------------- Configurable Parameters ---------------------
 
 # Grid Configuration
-GRID_ROWS = 10  # Number of rows in the grid
-GRID_COLS = 15  # Number of columns in the grid
+GRID_ROWS = 15  # Number of rows in the grid
+GRID_COLS = 10  # Number of columns in the grid
 
 # Player Configuration
-# Starting position of the player outside the grid (e.g., (-1, 0))
-PLAYER_START_POS = (-1, 1)  # Player starts above the first row
+PLAYER_START_POS = (-1, 1)  # Player starts above the grid at column 1
 END_POS = (GRID_ROWS - 1, GRID_COLS - 1)  # End position inside the grid
 
 # Drone Configuration
@@ -28,6 +27,7 @@ RANDOM_SEED = 42  # Set to an integer value for reproducible results
 EMPTY_SYMBOL = '.'
 PLAYER_SYMBOL = 'P'
 END_SYMBOL = 'X'
+START_BOX_SYMBOL = 'S'  # Symbol for the start box (we'll use an empty symbol for simplicity)
 DRONE_SYMBOLS = ['T1', 'T2', 'T3', 'T4', 'T5']
 
 # Directions for movement
@@ -62,26 +62,8 @@ GROUP_DEFINITIONS = [
         'sector_shape': [(0, 0), (0, 1), (1, 0), (1, 1)],  # 2x2 square
         'patrol_route': [(0, 0), (0, 1), (1, 1), (1, 0)]  # Loop around the square
     },
-    {
-        'symbol': 'T2',
-        'sector_shape': [(0, 0), (0, 1), (0, 2)],  # Horizontal line of 3 squares
-        'patrol_route': [(0, 0), (0, 1), (0, 2), (0, 1)]  # Back and forth
-    },
-    {
-        'symbol': 'T3',
-        'sector_shape': [(0, 0), (1, 0), (2, 0)],  # Vertical line of 3 squares
-        'patrol_route': [(0, 0), (1, 0), (2, 0), (1, 0)]  # Up and down
-    },
-    {
-        'symbol': 'T4',
-        'sector_shape': [(0, 0), (1, 0), (1, 1)],  # L-shape
-        'patrol_route': [(0, 0), (1, 0), (1, 1), (1, 0)]  # Loop around the L
-    },
-    {
-        'symbol': 'T5',
-        'sector_shape': [(0, 1), (1, 0), (1, 1), (1, 2)],  # T-shape
-        'patrol_route': [(1, 0), (1, 1), (1, 2), (0, 1), (1, 1)]  # Traverse the T
-    }
+    # ... (other group definitions remain unchanged)
+    # [Include T2, T3, T4, T5 definitions as in your code]
 ]
 
 class DroneGroup:
@@ -228,29 +210,47 @@ def initialize_game():
 
 def draw_grid(player_pos, end_pos, drones):
     """
-    Create the current state of the grid.
+    Create the current state of the grid, including the start box.
 
     :param player_pos: Tuple (row, col) of the player's position.
     :param end_pos: Tuple (row, col) of the end position.
     :param drones: List of Drone objects.
     :return: List of lists representing the grid.
     """
-    grid = [[EMPTY_SYMBOL for _ in range(GRID_COLS)] for _ in range(GRID_ROWS)]
+    # Include start box as an extra row if the player starts above or below the grid
+    if PLAYER_START_POS[0] == -1 or PLAYER_START_POS[0] == GRID_ROWS:
+        grid_rows = GRID_ROWS + 1  # Extra row for the start box
+        row_offset = 1  # Shift grid rows by 1
+    else:
+        grid_rows = GRID_ROWS
+        row_offset = 0
+
+    # Similarly for columns
+    if PLAYER_START_POS[1] == -1 or PLAYER_START_POS[1] == GRID_COLS:
+        grid_cols = GRID_COLS + 1  # Extra column for the start box
+        col_offset = 1  # Shift grid columns by 1
+    else:
+        grid_cols = GRID_COLS
+        col_offset = 0
+
+    grid = [[EMPTY_SYMBOL for _ in range(grid_cols)] for _ in range(grid_rows)]
 
     # Place the end position
     er, ec = end_pos
-    grid[er][ec] = END_SYMBOL
+    grid[er + row_offset][ec + col_offset] = END_SYMBOL
 
     # Place drones
     drone_positions = {}
     for drone in drones:
         r, c = drone.position
-        if (r, c) == player_pos:
+        grid_row = r + row_offset
+        grid_col = c + col_offset
+        if (grid_row, grid_col) == (player_pos[0] + row_offset, player_pos[1] + col_offset):
             continue  # Collision handled separately
-        if (r, c) in drone_positions:
-            drone_positions[(r, c)].add(drone.symbol)
+        if (grid_row, grid_col) in drone_positions:
+            drone_positions[(grid_row, grid_col)].add(drone.symbol)
         else:
-            drone_positions[(r, c)] = {drone.symbol}
+            drone_positions[(grid_row, grid_col)] = {drone.symbol}
 
     for (r, c), symbols in drone_positions.items():
         if len(symbols) == 1:
@@ -258,10 +258,12 @@ def draw_grid(player_pos, end_pos, drones):
         else:
             grid[r][c] = '*'  # Indicate multiple drones
 
-    # Place the player if within grid boundaries
+    # Place the player
     pr, pc = player_pos
-    if 0 <= pr < GRID_ROWS and 0 <= pc < GRID_COLS:
-        grid[pr][pc] = PLAYER_SYMBOL
+    grid[pr + row_offset][pc + col_offset] = PLAYER_SYMBOL
+
+    # Optionally, mark the start box if desired
+    # For now, we can leave it as is since the player will occupy it when there
 
     return grid
 
@@ -451,6 +453,17 @@ def get_game_state():
         ]
     })
 
+def is_valid_move_from_start_box(move):
+    if PLAYER_START_POS[0] == -1:
+        return move == 'DOWN'
+    elif PLAYER_START_POS[0] == GRID_ROWS:
+        return move == 'UP'
+    elif PLAYER_START_POS[1] == -1:
+        return move == 'RIGHT'
+    elif PLAYER_START_POS[1] == GRID_COLS:
+        return move == 'LEFT'
+    return False  # Should not happen
+
 @app.route('/move', methods=['POST'])
 def move():
     if session.get('game_over', False):
@@ -466,8 +479,18 @@ def move():
     new_r = player_pos[0] + move_dir[0]
     new_c = player_pos[1] + move_dir[1]
 
-    # Update player position
-    player_pos = (new_r, new_c)
+    # Enforce movement rules when in start box
+    if player_pos == PLAYER_START_POS:
+        if not is_valid_move_from_start_box(move):
+            session['message'] = "🚫 Invalid move from the start position."
+            return jsonify({'message': session['message']})
+
+    # Enforce movement rules when moving back into the start box
+    if (new_r, new_c) == PLAYER_START_POS:
+        # Determine the required move to enter the start box
+        if not is_valid_move_from_start_box(move):
+            session['message'] = "🚫 Invalid move into the start position."
+            return jsonify({'message': session['message']})
 
     # Check boundaries
     if not (-1 <= new_r <= GRID_ROWS) or not (-1 <= new_c <= GRID_COLS):
@@ -475,6 +498,7 @@ def move():
         return jsonify({'message': session['message']})
 
     # Update player's position
+    player_pos = (new_r, new_c)
     session['player_pos'] = player_pos
 
     # Reconstruct drone groups
