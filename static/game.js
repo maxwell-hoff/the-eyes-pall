@@ -1,7 +1,7 @@
 let gameOver = false;
 let gridCells = [];
-const EMPTY_SYMBOL = '.'; // Define EMPTY_SYMBOL
-const START_BOX_SYMBOL = 'S'; // Define START_BOX_SYMBOL if needed
+const EMPTY_SYMBOL = '.';
+let startBox = null; // Global variable to hold start box data
 
 document.addEventListener('DOMContentLoaded', () => {
     fetchGameState(true);
@@ -51,10 +51,11 @@ function fetchGameState(initial = false) {
     fetch('/game_state')
         .then(response => response.json())
         .then(data => {
+            startBox = data.start_box; // Update startBox variable
             if (initial) {
-                renderGrid(data.grid);
+                renderGrid(data.grid, data.start_box);
             } else {
-                updateGrid(data.grid);
+                updateGrid(data.grid, data.start_box);
             }
             document.getElementById('message').innerText = data.message;
             gameOver = data.game_over;
@@ -81,10 +82,11 @@ function makeMove(move) {
         });
 }
 
-function renderGrid(grid) {
+function renderGrid(grid, startBox) {
     const container = document.getElementById('game-container');
     container.innerHTML = '';
     gridCells = [];
+
     grid.forEach((row, rowIndex) => {
         const rowDiv = document.createElement('div');
         rowDiv.className = 'grid-row';
@@ -101,9 +103,56 @@ function renderGrid(grid) {
         container.appendChild(rowDiv);
         gridCells.push(rowCells);
     });
+
+    // Now render the start box cell
+    const startBoxDiv = document.createElement('div');
+    startBoxDiv.className = 'grid-cell start-box';
+    startBoxDiv.innerText = startBox.symbol;
+    startBoxDiv.style.position = 'absolute';
+    startBoxDiv.style.width = '30px';
+    startBoxDiv.style.height = '30px';
+    startBoxDiv.style.lineHeight = '30px';
+    startBoxDiv.style.textAlign = 'center';
+    startBoxDiv.style.border = '1px solid #ccc';
+    startBoxDiv.style.backgroundColor = '#f9f9f9'; // Optional styling
+
+    // Position the start box cell relative to the grid
+    const containerRect = container.getBoundingClientRect();
+
+    // Assume each cell is 30px x 30px
+    const cellSize = 30;
+
+    let left = 0;
+    let top = 0;
+
+    if (startBox.position[0] === -1) {
+        // Start box is above the grid
+        top = -cellSize;
+        left = startBox.position[1] * cellSize;
+    } else if (startBox.position[0] === grid.length) {
+        // Start box is below the grid
+        top = grid.length * cellSize;
+        left = startBox.position[1] * cellSize;
+    } else if (startBox.position[1] === -1) {
+        // Start box is to the left of the grid
+        top = startBox.position[0] * cellSize;
+        left = -cellSize;
+    } else if (startBox.position[1] === grid[0].length) {
+        // Start box is to the right of the grid
+        top = startBox.position[0] * cellSize;
+        left = grid[0].length * cellSize;
+    }
+
+    startBoxDiv.style.left = left + 'px';
+    startBoxDiv.style.top = top + 'px';
+
+    container.appendChild(startBoxDiv);
+
+    // Save the startBoxDiv for later use
+    window.startBoxDiv = startBoxDiv;
 }
 
-function updateGrid(grid) {
+function updateGrid(grid, startBox) {
     grid.forEach((row, rowIndex) => {
         row.forEach((cell, colIndex) => {
             const cellDiv = gridCells[rowIndex][colIndex];
@@ -111,11 +160,19 @@ function updateGrid(grid) {
             cellDiv.className = 'grid-cell'; // Reset classes
         });
     });
+
+    // Update the start box cell
+    if (window.startBoxDiv) {
+        window.startBoxDiv.innerText = startBox.symbol;
+    }
 }
 
 function animateMovements(data) {
     const playerMove = data.player_move;
     const droneMoves = data.drone_moves;
+
+    // Update startBox variable
+    startBox = data.start_box;
 
     // Create a Promise for each movement to handle animation timing
     const animations = [];
@@ -125,12 +182,8 @@ function animateMovements(data) {
         const fromPos = playerMove.from;
         const toPos = playerMove.to;
 
-        // Adjust indices if grid has extra rows/columns
-        const rowOffset = fromPos[0] === -1 || toPos[0] === -1 ? 1 : 0;
-        const colOffset = fromPos[1] === -1 || toPos[1] === -1 ? 1 : 0;
-
-        const fromCell = getCell(fromPos[0] + rowOffset, fromPos[1] + colOffset);
-        const toCell = getCell(toPos[0] + rowOffset, toPos[1] + colOffset);
+        const fromCell = getCell(fromPos[0], fromPos[1]);
+        const toCell = getCell(toPos[0], toPos[1]);
 
         animations.push(animateMove(fromCell, toCell, 'player', 'P'));
     }
@@ -141,8 +194,8 @@ function animateMovements(data) {
             if (droneMove.from[0] === droneMove.to[0] && droneMove.from[1] === droneMove.to[1]) {
                 return; // Skip if the drone didn't move
             }
-            const fromCell = getCell(droneMove.from[0] + 1, droneMove.from[1]);
-            const toCell = getCell(droneMove.to[0] + 1, droneMove.to[1]);
+            const fromCell = getCell(droneMove.from[0], droneMove.from[1]);
+            const toCell = getCell(droneMove.to[0], droneMove.to[1]);
 
             animations.push(animateMove(fromCell, toCell, 'drone', droneMove.symbol));
         });
@@ -155,9 +208,12 @@ function animateMovements(data) {
     });
 }
 
-function getCell(rowIndex, colIndex) {
-    if (rowIndex >= 0 && rowIndex < gridCells.length && colIndex >= 0 && colIndex < gridCells[0].length) {
-        return gridCells[rowIndex][colIndex];
+function getCell(row, col) {
+    if (row >= 0 && row < gridCells.length && col >= 0 && col < gridCells[0].length) {
+        return gridCells[row][col];
+    } else if (startBox && row === startBox.position[0] && col === startBox.position[1]) {
+        // Return the start box cell
+        return window.startBoxDiv;
     }
     return null;
 }
@@ -181,7 +237,7 @@ function animateMove(fromCell, toCell, type, symbol = '') {
             movingElement.style.top = (fromRect.top - containerRect.top) + 'px';
             fromCell.innerText = EMPTY_SYMBOL;
         } else {
-            // Starting from outside the grid (adjust as needed)
+            // Starting from outside the grid
             movingElement.style.left = '-30px';
             movingElement.style.top = '0px';
         }
@@ -204,7 +260,7 @@ function animateMove(fromCell, toCell, type, symbol = '') {
             movingElement.style.top = (toRect.top - containerRect.top) + 'px';
             toCell.innerText = EMPTY_SYMBOL;
         } else {
-            // Moving outside the grid (adjust as needed)
+            // Moving outside the grid
             movingElement.style.left = '-30px';
             movingElement.style.top = '0px';
         }
@@ -218,5 +274,8 @@ function animateMove(fromCell, toCell, type, symbol = '') {
 }
 
 function isWithinGrid(pos) {
+    if (pos[0] === startBox.position[0] && pos[1] === startBox.position[1]) {
+        return true;
+    }
     return pos[0] >= 0 && pos[0] < gridCells.length && pos[1] >= 0 && pos[1] < gridCells[0].length;
 }
