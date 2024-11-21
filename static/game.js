@@ -172,7 +172,9 @@ function animateMovements(data) {
     const droneMoves = data.drone_moves;
 
     // Update startBox variable
-    startBox = data.start_box;
+    if (data.start_box) {
+        startBox = data.start_box;
+    }
 
     // Create a Promise for each movement to handle animation timing
     const animations = [];
@@ -209,9 +211,15 @@ function animateMovements(data) {
 }
 
 function getCell(row, col) {
+    // Ensure positions are numbers
+    row = Number(row);
+    col = Number(col);
+    const startRow = Number(startBox.position[0]);
+    const startCol = Number(startBox.position[1]);
+
     if (row >= 0 && row < gridCells.length && col >= 0 && col < gridCells[0].length) {
         return gridCells[row][col];
-    } else if (startBox && row === startBox.position[0] && col === startBox.position[1]) {
+    } else if (startBox && row === startRow && col === startCol) {
         // Return the start box cell
         return window.startBoxDiv;
     }
@@ -237,7 +245,7 @@ function animateMove(fromCell, toCell, type, symbol = '') {
             movingElement.style.top = (fromRect.top - containerRect.top) + 'px';
             fromCell.innerText = EMPTY_SYMBOL;
         } else {
-            // Starting from outside the grid
+            // Starting from outside the grid (adjust as needed)
             movingElement.style.left = '-30px';
             movingElement.style.top = '0px';
         }
@@ -260,7 +268,7 @@ function animateMove(fromCell, toCell, type, symbol = '') {
             movingElement.style.top = (toRect.top - containerRect.top) + 'px';
             toCell.innerText = EMPTY_SYMBOL;
         } else {
-            // Moving outside the grid
+            // Moving outside the grid (adjust as needed)
             movingElement.style.left = '-30px';
             movingElement.style.top = '0px';
         }
@@ -274,8 +282,13 @@ function animateMove(fromCell, toCell, type, symbol = '') {
 }
 
 function isWithinGrid(pos) {
-    if (pos[0] === startBox.position[0] && pos[1] === startBox.position[1]) {
+    const row = Number(pos[0]);
+    const col = Number(pos[1]);
+    const startRow = Number(startBox.position[0]);
+    const startCol = Number(startBox.position[1]);
+
+    if (row === startRow && col === startCol) {
         return true;
     }
-    return pos[0] >= 0 && pos[0] < gridCells.length && pos[1] >= 0 && pos[1] < gridCells[0].length;
+    return row >= 0 && row < gridCells.length && col >= 0 && col < gridCells[0].length;
 }

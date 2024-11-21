@@ -437,10 +437,13 @@ def move():
         if is_collision(player_pos, drones):
             session['game_over'] = True
             session['message'] = "💥 Oh no! You've been caught by a drone. Game Over. 💥"
+            # Prepare start_box data
+            start_box_symbol = PLAYER_SYMBOL if player_pos == PLAYER_START_POS else EMPTY_SYMBOL
             return jsonify({
                 'message': session['message'],
                 'game_over': True,
-                'player_move': {'from': old_player_pos, 'to': player_pos}
+                'player_move': {'from': old_player_pos, 'to': player_pos},
+                'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol}
             })
 
     # Record drone movements
@@ -472,11 +475,14 @@ def move():
                     'sector_origin': drone.sector_origin
                 } for drone in drones
             ]
+            # Prepare start_box data
+            start_box_symbol = PLAYER_SYMBOL if player_pos == PLAYER_START_POS else EMPTY_SYMBOL
             return jsonify({
                 'message': session['message'],
                 'game_over': True,
                 'player_move': {'from': old_player_pos, 'to': player_pos},
-                'drone_moves': drone_moves
+                'drone_moves': drone_moves,
+                'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol}
             })
 
     # Check if player has reached the end
@@ -493,11 +499,14 @@ def move():
                 'sector_origin': drone.sector_origin
             } for drone in drones
         ]
+        # Prepare start_box data
+        start_box_symbol = PLAYER_SYMBOL if player_pos == PLAYER_START_POS else EMPTY_SYMBOL
         return jsonify({
             'message': session['message'],
             'game_over': True,
             'player_move': {'from': old_player_pos, 'to': player_pos},
-            'drone_moves': drone_moves
+            'drone_moves': drone_moves,
+            'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol}
         })
 
     # Update drones in session
@@ -518,19 +527,26 @@ def move():
     if session['turn'] >= session.get('max_turns', 200):
         session['game_over'] = True
         session['message'] = "⏰ Maximum turns reached. Game Over."
+        # Prepare start_box data
+        start_box_symbol = PLAYER_SYMBOL if player_pos == PLAYER_START_POS else EMPTY_SYMBOL
         return jsonify({
             'message': session['message'],
             'game_over': True,
             'player_move': {'from': old_player_pos, 'to': player_pos},
-            'drone_moves': drone_moves
+            'drone_moves': drone_moves,
+            'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol}
         })
 
     session['message'] = ''
+    # Prepare start_box data
+    start_box_symbol = PLAYER_SYMBOL if player_pos == PLAYER_START_POS else EMPTY_SYMBOL
+
     return jsonify({
         'message': 'Move successful',
         'game_over': False,
         'player_move': {'from': old_player_pos, 'to': player_pos},
-        'drone_moves': drone_moves
+        'drone_moves': drone_moves,
+        'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol}
     })
 
 # --------------------- Flask Initialization ---------------------
