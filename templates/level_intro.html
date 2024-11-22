@@ -6,29 +6,29 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
             margin: 0;
-            overflow: hidden;
+            /* Removed 'display: flex', 'height: 100vh', and 'overflow: hidden' */
         }
+
         #intro-wrapper {
             width: 80%;
             max-width: 800px;
-            margin: auto;
+            margin: 50px auto; /* Center horizontally and add top margin */
             text-align: center;
         }
+
         #intro-text {
             font-size: 24px;
             line-height: 1.5;
             text-align: left; /* Left align during typing */
             word-wrap: break-word;
         }
+
         #start-button {
             position: fixed;
             bottom: 20px;
+            left: 50%; /* Center the button horizontally */
+            transform: translateX(-50%);
             padding: 10px 20px;
             font-size: 18px;
             cursor: pointer;
@@ -63,6 +63,10 @@
                     span.textContent = words[wordIndex] + ' ';
                     textContainer.appendChild(span);
                     wordIndex++;
+
+                    // Scroll to the bottom of the page
+                    window.scrollTo(0, document.body.scrollHeight);
+
                     setTimeout(displayNextWord, speed);
                 } else {
                     // Finished current paragraph, move to next
@@ -73,6 +77,10 @@
                         textContainer.appendChild(document.createElement('br'));
                         words = paragraphs[paragraphIndex].split(' ');
                         wordIndex = 0;
+
+                        // Scroll to the bottom of the page
+                        window.scrollTo(0, document.body.scrollHeight);
+
                         setTimeout(displayNextWord, speed);
                     } else {
                         // Finished all paragraphs
