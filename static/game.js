@@ -2,6 +2,9 @@ let gameOver = false;
 let gridCells = [];
 const EMPTY_SYMBOL = '.';
 let startBox = null; // Global variable to hold start box data
+let GRID_ROWS = 0;
+let GRID_COLS = 0;
+let playerPos = null; // Global variable to hold player's current position
 
 document.addEventListener('DOMContentLoaded', () => {
     fetchGameState(true);
@@ -38,7 +41,12 @@ document.addEventListener('DOMContentLoaded', () => {
             default:
                 return; // Ignore other keys
         }
-        makeMove(move);
+
+        if (canMove(move)) {
+            makeMove(move);
+        } else {
+            displayMessage("🚫 You can't move further in that direction!");
+        }
     });
 
     // Handle Reset Button
@@ -56,11 +64,50 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+// Function to determine if the player can move in the specified direction
+function canMove(move) {
+    if (!playerPos) return true; // If playerPos data isn't loaded yet
+
+    const [currentRow, currentCol] = playerPos;
+    let [newRow, newCol] = [currentRow, currentCol];
+
+    switch (move) {
+        case 'UP':
+            newRow -= 1;
+            break;
+        case 'DOWN':
+            newRow += 1;
+            break;
+        case 'LEFT':
+            newCol -= 1;
+            break;
+        case 'RIGHT':
+            newCol += 1;
+            break;
+        default:
+            return true; // STAY or unknown move
+    }
+
+    // Check if the new position is allowed
+    if (newRow < -1 || newRow > GRID_ROWS || newCol < -1 || newCol > GRID_COLS) {
+        return false;
+    }
+
+    return true;
+}
+
+function displayMessage(msg) {
+    document.getElementById('message').innerText = msg;
+}
+
 function fetchGameState(initial = false) {
     fetch('/game_state')
         .then(response => response.json())
         .then(data => {
             startBox = data.start_box; // Update startBox variable
+            GRID_ROWS = data.grid.length;
+            GRID_COLS = data.grid[0].length;
+            playerPos = data.player_pos; // Store player's current position
             if (initial) {
                 renderGrid(data.grid, startBox);
             } else {
@@ -85,8 +132,11 @@ function makeMove(move) {
             if (data.game_over) {
                 // If game over, fetch the latest grid state
                 fetchGameState();
-            } else {
+            } else if (data.player_move) {
                 animateMovements(data);
+            } else {
+                // Invalid move; refresh the grid
+                fetchGameState();
             }
         });
 }
@@ -185,6 +235,11 @@ function animateMovements(data) {
         startBox = data.start_box;
     }
 
+    // Update player's position
+    if (data.player_pos) {
+        playerPos = data.player_pos;
+    }
+
     // Create a Promise for each movement to handle animation timing
     const animations = [];
 
@@ -254,9 +309,10 @@ function animateMove(fromCell, toCell, type, symbol = '') {
             movingElement.style.top = (fromRect.top - containerRect.top) + 'px';
             fromCell.innerText = EMPTY_SYMBOL;
         } else {
-            // Starting from outside the grid (adjust as needed)
-            movingElement.style.left = '-30px';
-            movingElement.style.top = '0px';
+            // Starting from outside the grid
+            const startRect = window.startBoxDiv.getBoundingClientRect();
+            movingElement.style.left = (startRect.left - containerRect.left) + 'px';
+            movingElement.style.top = (startRect.top - containerRect.top) + 'px';
         }
 
         movingElement.style.width = '30px';
@@ -277,9 +333,10 @@ function animateMove(fromCell, toCell, type, symbol = '') {
             movingElement.style.top = (toRect.top - containerRect.top) + 'px';
             toCell.innerText = EMPTY_SYMBOL;
         } else {
-            // Moving outside the grid (adjust as needed)
-            movingElement.style.left = '-30px';
-            movingElement.style.top = '0px';
+            // Moving outside the grid
+            const endRect = window.startBoxDiv.getBoundingClientRect();
+            movingElement.style.left = (endRect.left - containerRect.left) + 'px';
+            movingElement.style.top = (endRect.top - containerRect.top) + 'px';
         }
 
         // After transition, remove movingElement

@@ -1,5 +1,4 @@
 import os
-import time
 import random
 import json
 from flask import Flask, render_template, request, session, jsonify, redirect, url_for
@@ -13,7 +12,7 @@ with open('levels.json', 'r') as f:
 # --------------------- Define Global Variables ---------------------
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key'  # Replace with a random secret key
+app.secret_key = 'your-secret-key'  # Replace with a secure random key
 app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
 
@@ -51,7 +50,6 @@ GROUP_DEFINITIONS = [
         'sector_shape': [(0, 0), (0, 1), (1, 0), (1, 1)],  # 2x2 square
         'patrol_route': [(0, 0), (0, 1), (1, 1), (1, 0)]  # Loop around the square
     },
-    # Include T2, T3, T4, T5 definitions as in your code
     {
         'symbol': 'T2',
         'sector_shape': [(0, 0), (0, 1), (0, 2)],
@@ -78,10 +76,6 @@ class DroneGroup:
     def __init__(self, symbol, sector_shape, patrol_route):
         """
         Initialize a drone group.
-
-        :param symbol: String representing the drone group.
-        :param sector_shape: List of relative positions defining the sector shape.
-        :param patrol_route: List of positions defining the patrol route within the sector.
         """
         self.symbol = symbol
         self.sector_shape = sector_shape
@@ -92,11 +86,6 @@ class Drone:
     def __init__(self, group, sector_origin, GRID_ROWS, GRID_COLS):
         """
         Initialize a drone.
-
-        :param group: The DroneGroup object the drone belongs to.
-        :param sector_origin: The top-left position of the drone's sector.
-        :param GRID_ROWS: Number of rows in the grid.
-        :param GRID_COLS: Number of columns in the grid.
         """
         self.symbol = group.symbol
         self.group = group
@@ -112,9 +101,7 @@ class Drone:
 
     def calculate_sector(self):
         """
-        Calculate the absolute positions of the drone's sector based on its origin and group sector shape.
-
-        :return: Set of positions representing the sector.
+        Calculate the absolute positions of the drone's sector.
         """
         sector = set()
         for rel_pos in self.group.sector_shape:
@@ -124,9 +111,7 @@ class Drone:
 
     def calculate_patrol_route(self):
         """
-        Calculate the patrol route within the sector, adjusted for the sector's origin.
-
-        :return: List of positions representing the patrol route.
+        Calculate the patrol route within the sector.
         """
         route = []
         for rel_pos in self.group.patrol_route:
@@ -135,7 +120,7 @@ class Drone:
             if 0 <= abs_pos[0] < self.GRID_ROWS and 0 <= abs_pos[1] < self.GRID_COLS:
                 route.append(abs_pos)
             else:
-                # If out of bounds, adjust to stay within grid
+                # Adjust to stay within grid
                 clamped_r = max(0, min(self.GRID_ROWS - 1, abs_pos[0]))
                 clamped_c = max(0, min(self.GRID_COLS - 1, abs_pos[1]))
                 route.append((clamped_r, clamped_c))
@@ -143,7 +128,7 @@ class Drone:
 
     def move(self):
         """
-        Move the drone along its patrol route, reversing direction at the ends if necessary.
+        Move the drone along its patrol route.
         """
         if self.route_length <= 1:
             print(f"Warning: Drone {self.symbol} has an insufficient patrol route and cannot move.")
@@ -221,11 +206,6 @@ def initialize_game(GRID_ROWS, GRID_COLS, PLAYER_START_POS, END_POS, NUM_DRONES,
 def draw_grid(player_pos, end_pos, drones, GRID_ROWS, GRID_COLS):
     """
     Create the current state of the grid.
-
-    :param player_pos: Tuple (row, col) of the player's position.
-    :param end_pos: Tuple (row, col) of the end position.
-    :param drones: List of Drone objects.
-    :return: List of lists representing the grid.
     """
     grid = [[EMPTY_SYMBOL for _ in range(GRID_COLS)] for _ in range(GRID_ROWS)]
 
@@ -260,10 +240,6 @@ def draw_grid(player_pos, end_pos, drones, GRID_ROWS, GRID_COLS):
 def is_collision(player_pos, drones):
     """
     Check if the player has collided with any drone.
-
-    :param player_pos: Tuple (row, col) of the player's position.
-    :param drones: List of Drone objects.
-    :return: Boolean indicating collision.
     """
     for drone in drones:
         if player_pos == drone.position:
@@ -271,11 +247,6 @@ def is_collision(player_pos, drones):
     return False
 
 # --------------------- Flask Web Interface ---------------------
-
-app = Flask(__name__)
-app.secret_key = 'your-secret-key'  # Replace with a random secret key
-app.config['SESSION_TYPE'] = 'filesystem'
-Session(app)
 
 @app.route('/')
 def level_selection():
@@ -394,6 +365,8 @@ def get_game_state():
     })
 
 def is_valid_move_from_start_box(move, PLAYER_START_POS, GRID_ROWS, GRID_COLS):
+    if move == 'STAY':
+        return True  # Allow staying in the start position
     if PLAYER_START_POS[0] == -1:
         return move == 'DOWN'
     elif PLAYER_START_POS[0] == GRID_ROWS:
@@ -427,19 +400,18 @@ def move():
     if player_pos == PLAYER_START_POS:
         if not is_valid_move_from_start_box(move, PLAYER_START_POS, GRID_ROWS, GRID_COLS):
             session['message'] = "🚫 Invalid move from the start position."
-            return jsonify({'message': session['message']})
+            return jsonify({'message': session['message'], 'game_over': False})
 
     # Enforce movement rules when moving back into the start box
     if (new_r, new_c) == PLAYER_START_POS:
-        # Determine the required move to enter the start box
         if not is_valid_move_from_start_box(move, PLAYER_START_POS, GRID_ROWS, GRID_COLS):
             session['message'] = "🚫 Invalid move into the start position."
-            return jsonify({'message': session['message']})
+            return jsonify({'message': session['message'], 'game_over': False})
 
     # Check boundaries
     if not (-1 <= new_r <= GRID_ROWS) or not (-1 <= new_c <= GRID_COLS):
         session['message'] = "🚫 Move out of bounds. Try again."
-        return jsonify({'message': session['message']})
+        return jsonify({'message': session['message'], 'game_over': False})
 
     # Update player's position
     player_pos = (new_r, new_c)
@@ -468,7 +440,7 @@ def move():
         drone.direction = direction
         drones.append(drone)
 
-    # Check for collision after player's move (only if inside the grid)
+    # Check for collision after player's move
     if 0 <= new_r < GRID_ROWS and 0 <= new_c < GRID_COLS:
         if is_collision(player_pos, drones):
             session['game_over'] = True
@@ -479,7 +451,8 @@ def move():
                 'message': session['message'],
                 'game_over': True,
                 'player_move': {'from': old_player_pos, 'to': player_pos},
-                'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol}
+                'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol},
+                'player_pos': session['player_pos']
             })
 
     # Record drone movements
@@ -496,7 +469,7 @@ def move():
             'to': new_pos
         })
 
-    # Check for collision after drones' move (only if player is inside the grid)
+    # Check for collision after drones' move
     if 0 <= player_pos[0] < GRID_ROWS and 0 <= player_pos[1] < GRID_COLS:
         if is_collision(player_pos, drones):
             session['game_over'] = True
@@ -518,7 +491,8 @@ def move():
                 'game_over': True,
                 'player_move': {'from': old_player_pos, 'to': player_pos},
                 'drone_moves': drone_moves,
-                'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol}
+                'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol},
+                'player_pos': session['player_pos']
             })
 
     # Check if player has reached the end
@@ -542,7 +516,8 @@ def move():
             'game_over': True,
             'player_move': {'from': old_player_pos, 'to': player_pos},
             'drone_moves': drone_moves,
-            'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol}
+            'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol},
+            'player_pos': session['player_pos']
         })
 
     # Update drones in session
@@ -570,7 +545,8 @@ def move():
             'game_over': True,
             'player_move': {'from': old_player_pos, 'to': player_pos},
             'drone_moves': drone_moves,
-            'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol}
+            'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol},
+            'player_pos': session['player_pos']
         })
 
     session['message'] = ''
@@ -582,7 +558,8 @@ def move():
         'game_over': False,
         'player_move': {'from': old_player_pos, 'to': player_pos},
         'drone_moves': drone_moves,
-        'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol}
+        'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol},
+        'player_pos': session['player_pos']
     })
 
 # --------------------- Flask Initialization ---------------------
@@ -596,8 +573,4 @@ def reset():
 # --------------------- Main Entry Point ---------------------
 
 if __name__ == '__main__':
-    import sys
-    if 'cli' in sys.argv:
-        pass  # Adjust CLI code as needed
-    else:
-        app.run(debug=True)
+    app.run(debug=True)
