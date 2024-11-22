@@ -1,0 +1,24 @@
+[
+    {
+        "id": "level1",
+        "title": "The Front Line",
+        "grid_rows": 15,
+        "grid_cols": 10,
+        "player_start_pos": [-1, 1],
+        "end_pos": [14, 9],
+        "num_drones": 25,
+        "num_drone_groups": 5,
+        "completion_text": "Congratulations on completing The Front Line!"
+    },
+    {
+        "id": "level2",
+        "title": "Deep Infiltration",
+        "grid_rows": 20,
+        "grid_cols": 15,
+        "player_start_pos": [-1, 2],
+        "end_pos": [19, 14],
+        "num_drones": 40,
+        "num_drone_groups": 6,
+        "completion_text": "You've successfully infiltrated deep into enemy territory!"
+    }
+]

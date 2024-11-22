@@ -53,9 +53,9 @@ function fetchGameState(initial = false) {
         .then(data => {
             startBox = data.start_box; // Update startBox variable
             if (initial) {
-                renderGrid(data.grid, data.start_box);
+                renderGrid(data.grid, startBox);
             } else {
-                updateGrid(data.grid, data.start_box);
+                updateGrid(data.grid, startBox);
             }
             document.getElementById('message').innerText = data.message;
             gameOver = data.game_over;

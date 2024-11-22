@@ -1,27 +1,21 @@
 import os
 import time
 import random
-from flask import Flask, render_template, request, session, jsonify
+import json
+from flask import Flask, render_template, request, session, jsonify, redirect, url_for
 from flask_session import Session
 
-# --------------------- Configurable Parameters ---------------------
+# --------------------- Load Levels Configuration ---------------------
 
-# Grid Configuration
-GRID_ROWS = 15  # Number of rows in the grid
-GRID_COLS = 10  # Number of columns in the grid
+with open('levels.json', 'r') as f:
+    LEVELS = json.load(f)
 
-# Player Configuration
-PLAYER_START_POS = (-1, 1)  # Player starts above the grid at column 1
-END_POS = (GRID_ROWS - 1, GRID_COLS - 1)  # End position inside the grid
+# --------------------- Define Global Variables ---------------------
 
-# Drone Configuration
-NUM_DRONES = 25          # Total number of drones
-NUM_DRONE_GROUPS = 5     # Number of drone groups
-
-# Random Seed for Reproducibility
-RANDOM_SEED = 42  # Set to an integer value for reproducible results
-
-# --------------------- End of Configurable Parameters ---------------------
+app = Flask(__name__)
+app.secret_key = 'your-secret-key'  # Replace with a random secret key
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 
 # Define symbols
 EMPTY_SYMBOL = '.'
@@ -42,15 +36,11 @@ def clear_screen():
     """Clear the terminal screen for better readability."""
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def is_adjacent_to_player_start(pos, distance=1):
+def is_adjacent_to_player_start(pos, player_start_pos, distance=1):
     """
     Check if a position is within a certain distance from the player's starting position.
-
-    :param pos: Tuple (row, col) position to check.
-    :param distance: Manhattan distance threshold.
-    :return: Boolean indicating if position is within the threshold.
     """
-    return abs(pos[0] - PLAYER_START_POS[0]) + abs(pos[1] - PLAYER_START_POS[1]) <= distance
+    return abs(pos[0] - player_start_pos[0]) + abs(pos[1] - player_start_pos[1]) <= distance
 
 # --------------------- Game Definitions ---------------------
 
@@ -109,6 +99,8 @@ class Drone:
         self.symbol = group.symbol
         self.group = group
         self.sector_origin = sector_origin
+        self.GRID_ROWS = GRID_ROWS
+        self.GRID_COLS = GRID_COLS
         self.sector = self.calculate_sector()
         self.patrol_route = self.calculate_patrol_route()
         self.route_length = len(self.patrol_route)
@@ -138,12 +130,12 @@ class Drone:
         for rel_pos in self.group.patrol_route:
             abs_pos = (self.sector_origin[0] + rel_pos[0], self.sector_origin[1] + rel_pos[1])
             # Ensure patrol route is within grid boundaries
-            if 0 <= abs_pos[0] < GRID_ROWS and 0 <= abs_pos[1] < GRID_COLS:
+            if 0 <= abs_pos[0] < self.GRID_ROWS and 0 <= abs_pos[1] < self.GRID_COLS:
                 route.append(abs_pos)
             else:
                 # If out of bounds, adjust to stay within grid
-                clamped_r = max(0, min(GRID_ROWS - 1, abs_pos[0]))
-                clamped_c = max(0, min(GRID_COLS - 1, abs_pos[1]))
+                clamped_r = max(0, min(self.GRID_ROWS - 1, abs_pos[0]))
+                clamped_c = max(0, min(self.GRID_COLS - 1, abs_pos[1]))
                 route.append((clamped_r, clamped_c))
         return route
 
@@ -167,11 +159,9 @@ class Drone:
 
 # --------------------- Game Initialization ---------------------
 
-def initialize_game():
+def initialize_game(GRID_ROWS, GRID_COLS, PLAYER_START_POS, END_POS, NUM_DRONES, NUM_DRONE_GROUPS, RANDOM_SEED):
     """
     Initialize the game state with drones and their patrol routes.
-
-    :return: Tuple (player_pos, end_pos, drones)
     """
     # Initialize player and end positions
     player_pos = PLAYER_START_POS
@@ -212,9 +202,9 @@ def initialize_game():
                 sector = set((sector_origin[0] + r, sector_origin[1] + c) for r, c in group.sector_shape)
 
                 # Check if sector overlaps with assigned positions or is adjacent to player start
-                if sector.isdisjoint(assigned_positions) and not any(is_adjacent_to_player_start(pos) for pos in sector):
+                if sector.isdisjoint(assigned_positions) and not any(is_adjacent_to_player_start(pos, PLAYER_START_POS) for pos in sector):
                     assigned_positions.update(sector)
-                    drone = Drone(group, sector_origin)
+                    drone = Drone(group, sector_origin, GRID_ROWS, GRID_COLS)
                     drones.append(drone)
                     group.drones.append(drone)
                     sector_placed = True
@@ -286,17 +276,47 @@ app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
 
 @app.route('/')
-def index():
-    # Initialize the game if not already started
-    if 'initialized' not in session:
-        initialize_web_game()
-    return render_template('index.html')
+def level_selection():
+    # Render the level selection screen
+    return render_template('level_selection.html', levels=LEVELS)
+
+@app.route('/start_game/<level_id>')
+def start_game(level_id):
+    # Find the level configuration
+    level_config = next((level for level in LEVELS if level['id'] == level_id), None)
+    if not level_config:
+        return "Level not found", 404
+
+    # Store level configuration in session
+    session['level_config'] = level_config
+    session['initialized'] = False  # Reset game initialization
+
+    return redirect(url_for('game'))
 
 def initialize_web_game():
     """Initialize the game state for the web version."""
-    player_pos, end_pos, drones = initialize_game()
+    level_config = session['level_config']
+
+    # Extract level parameters
+    GRID_ROWS = level_config['grid_rows']
+    GRID_COLS = level_config['grid_cols']
+    PLAYER_START_POS = tuple(level_config['player_start_pos'])
+    END_POS = tuple(level_config['end_pos'])
+    NUM_DRONES = level_config['num_drones']
+    NUM_DRONE_GROUPS = level_config['num_drone_groups']
+
+    # Set random seed for reproducibility
+    RANDOM_SEED = level_config.get('random_seed', None)
+
+    # Initialize game state
+    player_pos, end_pos, drones = initialize_game(
+        GRID_ROWS, GRID_COLS, PLAYER_START_POS, END_POS, NUM_DRONES, NUM_DRONE_GROUPS, RANDOM_SEED
+    )
     session['player_pos'] = player_pos
     session['end_pos'] = end_pos
+    session['grid_rows'] = GRID_ROWS
+    session['grid_cols'] = GRID_COLS
+    session['player_start_pos'] = PLAYER_START_POS
     session['turn'] = 0
     session['max_turns'] = 200
     # Store drones as list of dicts for serialization
@@ -312,6 +332,13 @@ def initialize_web_game():
     session['game_over'] = False
     session['message'] = ''
     session['initialized'] = True
+
+@app.route('/game')
+def game():
+    # Initialize the game if not already started
+    if not session.get('initialized', False):
+        initialize_web_game()
+    return render_template('index.html')
 
 @app.route('/game_state', methods=['GET'])
 def get_game_state():

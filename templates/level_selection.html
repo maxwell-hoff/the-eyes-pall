@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Select a Level</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #level-container {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 20px;
+        }
+        .level-box {
+            width: 200px;
+            height: 100px;
+            border: 1px solid #ccc;
+            margin: 10px;
+            text-align: center;
+            line-height: 100px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #f9f9f9;
+        }
+        .level-box:hover {
+            background-color: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Select a Level</h1>
+    <div id="level-container">
+        {% for level in levels %}
+            <div class="level-box" onclick="startGame('{{ level.id }}')">
+                {{ level.title }}
+            </div>
+        {% endfor %}
+    </div>
+    <script>
+        function startGame(levelId) {
+            window.location.href = '/start_game/' + levelId;
+        }
+    </script>
+</body>
+</html>

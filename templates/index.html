@@ -51,10 +51,16 @@
     <div id="message"></div>
     <div id="controls">
         <button id="reset-button">Reset Game</button>
+        <button id="back-button">Back to Level Selection</button>
     </div>
     <div class="legend">
         <p>Legend: P=Player, X=End, T1/T2/T3/T4/T5=Drone Groups, *=Multiple Drones, .=Empty</p>
     </div>
     <script src="{{ url_for('static', filename='game.js') }}"></script>
+    <script>
+        document.getElementById('back-button').addEventListener('click', () => {
+            window.location.href = '/';
+        });
+    </script>
 </body>
 </html>
