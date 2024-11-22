@@ -10,21 +10,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gameOver) return;
 
         let move = null;
-        switch (event.key) {
-            case 'ArrowUp':
+
+        // Normalize key input to uppercase to handle both cases
+        const key = event.key.toUpperCase();
+
+        switch (key) {
+            case 'W':
                 move = 'UP';
+                event.preventDefault(); // Prevent default behavior
                 break;
-            case 'ArrowDown':
-                move = 'DOWN';
-                break;
-            case 'ArrowLeft':
+            case 'A':
                 move = 'LEFT';
+                event.preventDefault();
                 break;
-            case 'ArrowRight':
+            case 'S':
+                move = 'DOWN';
+                event.preventDefault();
+                break;
+            case 'D':
                 move = 'RIGHT';
+                event.preventDefault();
                 break;
-            case 'Enter':
+            case 'ENTER':
                 move = 'STAY';
+                event.preventDefault();
                 break;
             default:
                 return; // Ignore other keys
