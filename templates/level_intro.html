@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Level Introduction</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+            overflow: hidden;
+        }
+        #intro-text {
+            max-width: 80%;
+            margin: auto;
+            font-size: 24px;
+            line-height: 1.5;
+        }
+        #start-button {
+            position: fixed;
+            bottom: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="intro-text"></div>
+    <button id="start-button">Start Game</button>
+
+    <script>
+        const introText = `{{ intro_text | safe }}`;
+        const printSpeed = {{ print_speed }};
+        const levelId = `{{ level_id }}`;
+
+        // Function to display text word by word
+        function displayText(text, speed) {
+            const textContainer = document.getElementById('intro-text');
+            const words = text.split(' ');
+            let index = 0;
+            const maxIndex = words.length;
+
+            function displayNextWord() {
+                if (index < maxIndex) {
+                    const word = words[index];
+
+                    // Check for newline character
+                    if (word.includes('\\n')) {
+                        const parts = word.split('\\n');
+                        parts.forEach((part, idx) => {
+                            if (idx > 0) {
+                                const br = document.createElement('br');
+                                textContainer.appendChild(br);
+                                textContainer.appendChild(br.cloneNode());
+                            }
+                            const span = document.createElement('span');
+                            span.textContent = part + ' ';
+                            textContainer.appendChild(span);
+                        });
+                    } else {
+                        const span = document.createElement('span');
+                        span.textContent = word + ' ';
+                        textContainer.appendChild(span);
+                    }
+
+                    index++;
+                    setTimeout(displayNextWord, speed);
+                }
+            }
+
+            displayNextWord();
+        }
+
+        // Start displaying text
+        displayText(introText, printSpeed);
+
+        // Handle Start Game button
+        document.getElementById('start-button').addEventListener('click', () => {
+            window.location.href = `/start_game/${levelId}`;
+        });
+    </script>
+</body>
+</html>

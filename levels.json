@@ -8,7 +8,9 @@
         "end_pos": [14, 9],
         "num_drones": 25,
         "num_drone_groups": 5,
-        "completion_text": "Congratulations on completing The Front Line!"
+        "completion_text": "Congratulations on completing The Front Line!",
+        "intro_text": "You crouch in the trench, staring into the moonlit forest ahead. Somewhere out there, past the frost-covered dirt and fractured trees, lies the command bunker—and maybe the place you will die. The distant hum of the Noatak River and the faint crackle of shifting wildlife would make for a peaceful night if it were not for the signs of death. A splintered trunk here, a blackened crater there. The occasional stench of phosphorus, burning brush, and rotting flesh. And worst of all: the red blinking lights.\n\nThe Eye.\n\nRAF drones. Silent predators that stalk the valley, scanning for prey. They are the face of modern war—unseen and inescapable. Battles are not fought with grit or bravery anymore; they are determined by precision, dictated by algorithms. A single wrong step could bring a missile screaming from miles away, turning you into nothing but statistics in a war report.\n\nYour heart pounds as your commanding officer nods. The weight of everything—duty, fear, inevitability—presses on your chest. This is war now: a game of pattern recognition. If you can read the gaps in their coverage, you will make it to the bunker. If not…\n\nYou force your legs to move. The cold air burns your lungs. There is no turning back.",
+        "print_speed": 200
     },
     {
         "id": "level2",
@@ -19,6 +21,8 @@
         "end_pos": [19, 14],
         "num_drones": 40,
         "num_drone_groups": 6,
-        "completion_text": "You've successfully infiltrated deep into enemy territory!"
+        "completion_text": "You've successfully infiltrated deep into enemy territory!",
+        "intro_text": "The heart of the enemy's defense lies ahead.\nStealth is your ally.\nGood luck.",
+        "print_speed": 150
     }
 ]

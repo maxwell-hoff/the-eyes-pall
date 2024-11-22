@@ -253,6 +253,22 @@ def level_selection():
     # Render the level selection screen
     return render_template('level_selection.html', levels=LEVELS)
 
+@app.route('/level_intro/<level_id>')
+def level_intro(level_id):
+    # Find the level configuration
+    level_config = next((level for level in LEVELS if level['id'] == level_id), None)
+    if not level_config:
+        return "Level not found", 404
+
+    # Store level configuration in session
+    session['level_config'] = level_config
+
+    # Get intro text and print speed
+    intro_text = level_config.get('intro_text', '')
+    print_speed = level_config.get('print_speed', 200)  # Default to 200ms if not specified
+
+    return render_template('level_intro.html', intro_text=intro_text, print_speed=print_speed, level_id=level_id)
+
 @app.route('/start_game/<level_id>')
 def start_game(level_id):
     # Find the level configuration
