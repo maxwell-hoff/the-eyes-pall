@@ -12,14 +12,19 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            text-align: center;
             overflow: hidden;
         }
-        #intro-text {
-            max-width: 80%;
+        #intro-wrapper {
+            width: 80%;
+            max-width: 800px;
             margin: auto;
+            text-align: center;
+        }
+        #intro-text {
             font-size: 24px;
             line-height: 1.5;
+            text-align: left; /* Left align during typing */
+            word-wrap: break-word;
         }
         #start-button {
             position: fixed;
@@ -31,46 +36,49 @@
     </style>
 </head>
 <body>
-    <div id="intro-text"></div>
+    <div id="intro-wrapper">
+        <div id="intro-text"></div>
+    </div>
     <button id="start-button">Start Game</button>
 
     <script>
-        const introText = `{{ intro_text | safe }}`;
+        // Escape backslashes and newlines in intro_text
+        const introText = `{{ intro_text | replace('\\', '\\\\') | replace('\n', '\\n') }}`;
         const printSpeed = {{ print_speed }};
         const levelId = `{{ level_id }}`;
 
-        // Function to display text word by word
         function displayText(text, speed) {
             const textContainer = document.getElementById('intro-text');
-            const words = text.split(' ');
-            let index = 0;
-            const maxIndex = words.length;
+
+            // Split the text into paragraphs based on \n
+            const paragraphs = text.split('\\n');
+
+            let paragraphIndex = 0;
+            let wordIndex = 0;
+            let words = paragraphs[paragraphIndex].split(' ');
 
             function displayNextWord() {
-                if (index < maxIndex) {
-                    const word = words[index];
-
-                    // Check for newline character
-                    if (word.includes('\\n')) {
-                        const parts = word.split('\\n');
-                        parts.forEach((part, idx) => {
-                            if (idx > 0) {
-                                const br = document.createElement('br');
-                                textContainer.appendChild(br);
-                                textContainer.appendChild(br.cloneNode());
-                            }
-                            const span = document.createElement('span');
-                            span.textContent = part + ' ';
-                            textContainer.appendChild(span);
-                        });
-                    } else {
-                        const span = document.createElement('span');
-                        span.textContent = word + ' ';
-                        textContainer.appendChild(span);
-                    }
-
-                    index++;
+                if (wordIndex < words.length) {
+                    const span = document.createElement('span');
+                    span.textContent = words[wordIndex] + ' ';
+                    textContainer.appendChild(span);
+                    wordIndex++;
                     setTimeout(displayNextWord, speed);
+                } else {
+                    // Finished current paragraph, move to next
+                    paragraphIndex++;
+                    if (paragraphIndex < paragraphs.length) {
+                        // Add two line breaks for new paragraph
+                        textContainer.appendChild(document.createElement('br'));
+                        textContainer.appendChild(document.createElement('br'));
+                        words = paragraphs[paragraphIndex].split(' ');
+                        wordIndex = 0;
+                        setTimeout(displayNextWord, speed);
+                    } else {
+                        // Finished all paragraphs
+                        // Center the text
+                        textContainer.style.textAlign = 'center';
+                    }
                 }
             }
 
