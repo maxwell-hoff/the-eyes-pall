@@ -89,12 +89,14 @@ class DroneGroup:
         self.drones = []
 
 class Drone:
-    def __init__(self, group, sector_origin):
+    def __init__(self, group, sector_origin, GRID_ROWS, GRID_COLS):
         """
         Initialize a drone.
 
         :param group: The DroneGroup object the drone belongs to.
         :param sector_origin: The top-left position of the drone's sector.
+        :param GRID_ROWS: Number of rows in the grid.
+        :param GRID_COLS: Number of columns in the grid.
         """
         self.symbol = group.symbol
         self.group = group
@@ -216,7 +218,7 @@ def initialize_game(GRID_ROWS, GRID_COLS, PLAYER_START_POS, END_POS, NUM_DRONES,
 
     return player_pos, end_pos, drones
 
-def draw_grid(player_pos, end_pos, drones):
+def draw_grid(player_pos, end_pos, drones, GRID_ROWS, GRID_COLS):
     """
     Create the current state of the grid.
 
@@ -342,6 +344,9 @@ def game():
 
 @app.route('/game_state', methods=['GET'])
 def get_game_state():
+    GRID_ROWS = session['grid_rows']
+    GRID_COLS = session['grid_cols']
+    PLAYER_START_POS = tuple(session['player_start_pos'])
     player_pos = tuple(session['player_pos'])
     end_pos = tuple(session['end_pos'])
     drones_data = session['drones']
@@ -363,13 +368,13 @@ def get_game_state():
         if not group:
             continue  # Skip if group not found
 
-        drone = Drone(group, sector_origin)
+        drone = Drone(group, sector_origin, GRID_ROWS, GRID_COLS)
         drone.position = position
         drone.route_index = route_index
         drone.direction = direction
         drones.append(drone)
 
-    grid = draw_grid(player_pos, end_pos, drones)
+    grid = draw_grid(player_pos, end_pos, drones, GRID_ROWS, GRID_COLS)
 
     start_box_symbol = PLAYER_SYMBOL if player_pos == PLAYER_START_POS else EMPTY_SYMBOL
 
@@ -388,7 +393,7 @@ def get_game_state():
         ]
     })
 
-def is_valid_move_from_start_box(move):
+def is_valid_move_from_start_box(move, PLAYER_START_POS, GRID_ROWS, GRID_COLS):
     if PLAYER_START_POS[0] == -1:
         return move == 'DOWN'
     elif PLAYER_START_POS[0] == GRID_ROWS:
@@ -404,6 +409,10 @@ def move():
     if session.get('game_over', False):
         return jsonify({'message': session.get('message', 'Game Over'), 'game_over': True})
 
+    GRID_ROWS = session['grid_rows']
+    GRID_COLS = session['grid_cols']
+    PLAYER_START_POS = tuple(session['player_start_pos'])
+
     data = request.get_json()
     move = data.get('move')
     move_dir = DIRECTIONS.get(move.upper(), DIRECTIONS['STAY'])
@@ -416,14 +425,14 @@ def move():
 
     # Enforce movement rules when in start box
     if player_pos == PLAYER_START_POS:
-        if not is_valid_move_from_start_box(move):
+        if not is_valid_move_from_start_box(move, PLAYER_START_POS, GRID_ROWS, GRID_COLS):
             session['message'] = "🚫 Invalid move from the start position."
             return jsonify({'message': session['message']})
 
     # Enforce movement rules when moving back into the start box
     if (new_r, new_c) == PLAYER_START_POS:
         # Determine the required move to enter the start box
-        if not is_valid_move_from_start_box(move):
+        if not is_valid_move_from_start_box(move, PLAYER_START_POS, GRID_ROWS, GRID_COLS):
             session['message'] = "🚫 Invalid move into the start position."
             return jsonify({'message': session['message']})
 
@@ -453,7 +462,7 @@ def move():
         if not group:
             continue  # Skip if group not found
 
-        drone = Drone(group, sector_origin)
+        drone = Drone(group, sector_origin, GRID_ROWS, GRID_COLS)
         drone.position = position
         drone.route_index = route_index
         drone.direction = direction
