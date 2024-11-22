@@ -203,11 +203,11 @@ def initialize_game(GRID_ROWS, GRID_COLS, PLAYER_START_POS, END_POS, NUM_DRONES,
 
     return player_pos, end_pos, drones
 
-def draw_grid(player_pos, end_pos, drones, GRID_ROWS, GRID_COLS):
+def draw_grid(player_pos, end_pos, drones, GRID_ROWS_, GRID_COLS_):
     """
     Create the current state of the grid.
     """
-    grid = [[EMPTY_SYMBOL for _ in range(GRID_COLS)] for _ in range(GRID_ROWS)]
+    grid = [[EMPTY_SYMBOL for _ in range(GRID_COLS_)] for _ in range(GRID_ROWS_)]
 
     # Place the end position
     er, ec = end_pos
@@ -232,7 +232,7 @@ def draw_grid(player_pos, end_pos, drones, GRID_ROWS, GRID_COLS):
 
     # Place the player if within grid boundaries
     pr, pc = player_pos
-    if 0 <= pr < GRID_ROWS and 0 <= pc < GRID_COLS:
+    if 0 <= pr < GRID_ROWS_ and 0 <= pc < GRID_COLS_:
         grid[pr][pc] = PLAYER_SYMBOL
 
     return grid
@@ -408,12 +408,12 @@ def move():
             session['message'] = "🚫 Invalid move into the start position."
             return jsonify({'message': session['message'], 'game_over': False})
 
-    # Check boundaries
-    if not (-1 <= new_r <= GRID_ROWS) or not (-1 <= new_c <= GRID_COLS):
+    # Adjusted boundary checks
+    if not (-1 <= new_r < GRID_ROWS) or not (-1 <= new_c < GRID_COLS):
         session['message'] = "🚫 Move out of bounds. Try again."
         return jsonify({'message': session['message'], 'game_over': False})
 
-    # Update player's position
+    # Update player's position AFTER all checks have passed
     player_pos = (new_r, new_c)
     session['player_pos'] = player_pos
 

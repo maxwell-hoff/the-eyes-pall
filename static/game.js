@@ -5,6 +5,7 @@ let startBox = null; // Global variable to hold start box data
 let GRID_ROWS = 0;
 let GRID_COLS = 0;
 let playerPos = null; // Global variable to hold player's current position
+const PLAYER_SYMBOL = 'P';
 
 document.addEventListener('DOMContentLoaded', () => {
     fetchGameState(true);
@@ -166,7 +167,7 @@ function renderGrid(grid, startBox) {
     // Now render the start box cell
     const startBoxDiv = document.createElement('div');
     startBoxDiv.className = 'grid-cell start-box';
-    startBoxDiv.innerText = startBox.symbol;
+    startBoxDiv.innerText = EMPTY_SYMBOL; // Initialize as empty
     startBoxDiv.style.position = 'absolute';
     startBoxDiv.style.width = '30px';
     startBoxDiv.style.height = '30px';
@@ -209,6 +210,20 @@ function renderGrid(grid, startBox) {
 
     // Save the startBoxDiv for later use
     window.startBoxDiv = startBoxDiv;
+
+    // Manually place the player's symbol at the current position
+    if (playerPos) {
+        const row = playerPos[0];
+        const col = playerPos[1];
+        if (row >= 0 && row < gridCells.length && col >= 0 && col < gridCells[0].length) {
+            // Player is within the grid
+            const cellDiv = gridCells[row][col];
+            cellDiv.innerText = PLAYER_SYMBOL;
+        } else if (startBox && row === startBox.position[0] && col === startBox.position[1]) {
+            // Player is in the start box
+            window.startBoxDiv.innerText = PLAYER_SYMBOL;
+        }
+    }
 }
 
 function updateGrid(grid, startBox) {
@@ -222,7 +237,24 @@ function updateGrid(grid, startBox) {
 
     // Update the start box cell
     if (window.startBoxDiv) {
-        window.startBoxDiv.innerText = startBox.symbol;
+        window.startBoxDiv.innerText = EMPTY_SYMBOL; // Reset to empty
+    }
+
+    // Manually place the player's symbol at the current position
+    if (playerPos) {
+        const row = playerPos[0];
+        const col = playerPos[1];
+        if (row >= 0 && row < gridCells.length && col >= 0 && col < gridCells[0].length) {
+            // Player is within the grid
+            const cellDiv = gridCells[row][col];
+            cellDiv.innerText = PLAYER_SYMBOL;
+        } else if (startBox && row === startBox.position[0] && col === startBox.position[1]) {
+            // Player is in the start box
+            window.startBoxDiv.innerText = PLAYER_SYMBOL;
+        } else {
+            // Player is outside the grid and not in the start box
+            // Optional: Handle this case if necessary
+        }
     }
 }
 
