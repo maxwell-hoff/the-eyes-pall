@@ -6,26 +6,56 @@
     <style>
         body {
             font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0; /* Optional: Add a light background color */
+            height: 100vh;
+            box-sizing: border-box;
         }
+
+        h1 {
+            margin-bottom: 30px;
+        }
+
         #level-container {
             display: flex;
-            flex-wrap: wrap;
-            margin: 20px;
+            flex-direction: column; /* Stack items vertically */
+            align-items: center;    /* Center items horizontally */
+            width: 100%;
+            max-width: 400px;       /* Optional: Limit the maximum width */
         }
+
         .level-box {
-            width: 200px;
-            height: 100px;
+            width: 100%;
+            max-width: 300px;       /* Optional: Limit the maximum width of buttons */
+            height: 50px;            /* Reduced height */
             border: 1px solid #ccc;
-            margin: 10px;
+            margin: 10px 0;         /* Vertical margin between buttons */
             text-align: center;
-            line-height: 100px;
+            line-height: 50px;      /* Match line-height to height for vertical centering */
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
             background-color: #f9f9f9;
+            border-radius: 5px;     /* Optional: Rounded corners for better aesthetics */
+            transition: background-color 0.3s, transform 0.2s; /* Smooth hover effects */
         }
+
         .level-box:hover {
             background-color: #e0e0e0;
+            transform: scale(1.02); /* Slightly enlarge on hover */
+        }
+
+        /* Responsive Design: Adjust font size and button width on smaller screens */
+        @media (max-width: 500px) {
+            .level-box {
+                font-size: 16px;
+                height: 45px;
+                line-height: 45px;
+            }
         }
     </style>
 </head>

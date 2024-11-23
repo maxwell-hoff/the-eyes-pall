@@ -42,16 +42,15 @@
     <button id="start-button">Start Game</button>
 
     <script>
-        // Escape backslashes and newlines in intro_text
-        const introText = `{{ intro_text | replace('\\', '\\\\') | replace('\n', '\\n') }}`;
+        const introText = {{ intro_text | tojson }};
         const printSpeed = {{ print_speed }};
         const levelId = `{{ level_id }}`;
 
         function displayText(text, speed) {
             const textContainer = document.getElementById('intro-text');
 
-            // Split the text into paragraphs based on \n
-            const paragraphs = text.split('\\n');
+            // Split the text into paragraphs based on one or more newlines
+            const paragraphs = text.split(/\n+/);
 
             let paragraphIndex = 0;
             let wordIndex = 0;
