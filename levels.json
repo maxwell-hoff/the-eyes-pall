@@ -10,7 +10,8 @@
         "num_drone_groups": 5,
         "completion_text": "Congratulations on completing The Front Line!",
         "intro_text": "You crouch low in the trench, eyes locked on the frostbitten valley ahead. Somewhere beyond the shattered trees and cratered earth lies the command bunker, your destination. Frost clings to the ground like glass, glinting faintly under the moonlight. The air is sharp and cold in your lungs, carrying with it the faintest hints of something wrong: the acrid tang of burning brush, the chemical bite of phosphorus, and something worse—something rotting.\\nIt could almost be peaceful if not for the signs of what waits out there. The distant, desperate yell of someone crying for help cuts through the stillness. It is bait. You know it. A splintered tree and blackened crater on the hillside speak to something calculated—something far more deliberate than random skirmishes. And then you see it: blinking red lights further down the valley, like tiny, watchful eyes.\\nThe Eye.\\nYou have heard the stories. Russian drones, silent and relentless, patrolling the night. Invisible until they are not. And by the time you see them, it is often too late. They do not aim to kill outright. They target your legs, leaving you to scream and cry for help. Bait for the next poor soul who dares to cross. It is precision warfare, faster and more ruthless than anything a human could manage. This is not the war you read about in history books. Strength does not matter. Bravery does not matter. Only survival does.\\nYour orders are simple: move up the river along the hillside and reach the command bunker. Resupply. Regroup. Command has jammed the enemy drones temporarily, forcing them to reveal their positions through their anti-jamming mechanism. But the jamming will not last forever, and when it ends, the drones will go invisible again. Time is not on your side.\\nYour heart pounds as your commanding officer nods. The weight of everything—duty, fear, inevitability—presses on your chest. This is war now: a game of pattern recognition. If you can read the gaps in their coverage, you will make it to the bunker. \\nYou force your legs to move. The cold air burns your face. There is no turning back.",
-        "print_speed": 150
+        "print_speed": 100,
+        "random_seed": 42
     },
     {
         "id": "level2",
@@ -19,10 +20,81 @@
         "grid_cols": 15,
         "player_start_pos": [-1, 2],
         "end_pos": [19, 14],
-        "num_drones": 40,
+        "num_drones": 75,
         "num_drone_groups": 6,
         "completion_text": "You've successfully infiltrated deep into enemy territory!",
         "intro_text": "The command bunker wasn’t what you expected. It was a makeshift operation, pieced together by officers who didn’t seem much better equipped than the rest of us. There was no central intelligence guiding them, no real plan—just a map covered in scribbles and a lot of grim determination. Whatever was left of the military’s structure and funding, it wasn’t here.\n\nThey’d pieced together what they could: scattered sightings, stories from locals, intercepted chatter, and patterns in drone activity. It all pointed to the same conclusion—this wasn’t just a opportunistic commercial mining operation. And the drones seemed to be zeroing in on our locations.\nYour next mission was simple on paper: head six clicks north along the river and recon a staging site. The officers believed it was the center of whatever the Russians were planning. What that was, no one could say. Supplies? Something worse? The only certainty was that the drones would be patrolling, silent and precise, ready to strike at the first mistake.\n\nAs you stepped back into the frost, the cold’s bite reminded you just how far north you’d come, how alien this place felt compared to the world you thought you knew. The jagged peaks outlined in moonlight towered over faint traces of steep, rocky surfaces, each slope a stark reminder of the overwhelming scale of this land. Back home, these mountains would be wonders, destinations for tourists and influencers. Here, they’re nameless—just one more jagged silhouette in an endless expanse. The miles you’ve traveled, the effort it’s taken, and the realization that you’ve barely scratched the surface of this untamed wilderness gnawed at you. It’s a land that feels untouched, unclaimed, and indifferent to human life.\n\nWhatever brought the Russians here had to be as ruthless and unyielding as the landscape itself.\n\nSomewhere ahead, the truth waited. And it wasn’t going to be a comfortable truth.",
-        "print_speed": 150
+        "print_speed": 100,
+        "random_seed": 41
+    },
+    {
+        "id": "level3",
+        "title": "Return to the Trenches",
+        "grid_rows": 20,
+        "grid_cols": 10,
+        "player_start_pos": [-1, 2],
+        "end_pos": [19, 7],
+        "num_drones": 55,
+        "num_drone_groups": 6,
+        "completion_text": "You've successfully infiltrated deep into enemy territory!",
+        "intro_text": "The staging area wasn’t what you expected. You’d imagined something overtly military—a clear sign of what the Russians were planning. Instead, it looked almost ordinary: industrial equipment, storage crates, and work lights cutting through the frostbitten night. Still, there was too much hurry for it to feel innocent. The workers were quieter than any worksite I've ever seen with a seriousness that portrayed military. Working this late into the night was incredibly unusual, although this will likely be dismissed by your superiors as due to the disorienting daylight time this far north. When they did speak they spoke quietly enough - as if they were expecting to be eavesdropped on. Everything about it felt off, but you had no proof. \nYou were going to need to take an alternate route on the way back. The drone coverage was more intense than anyone at the command bunker was expecting. Your return route would be through dangerous mountainous terrain, but at least there would be fewer drones this time. \nYou were physically exhausted and low on water. The upcoming trip was filled with anguish but the fear of staying motivated you to move.",
+        "print_speed": 100,
+        "random_seed": 43
+    },
+    {
+        "id": "level4",
+        "title": "Relocation",
+        "grid_rows": 10,
+        "grid_cols": 40,
+        "player_start_pos": [-1, 2],
+        "end_pos": [8, 38],
+        "num_drones": 125,
+        "num_drone_groups": 6,
+        "completion_text": "You've successfully infiltrated deep into enemy territory!",
+        "intro_text": "The command bunker wasn’t what you expected. It was a makeshift operation, pieced together by officers who didn’t seem much better equipped than the rest of us. There was no central intelligence guiding them, no real plan—just a map covered in scribbles and a lot of grim determination. Whatever was left of the military’s structure and funding, it wasn’t here.\n\nThey’d pieced together what they could: scattered sightings, stories from locals, intercepted chatter, and patterns in drone activity. It all pointed to the same conclusion—this wasn’t just a opportunistic commercial mining operation. And the drones seemed to be zeroing in on our locations.\nYour next mission was simple on paper: head six clicks north along the river and recon a staging site. The officers believed it was the center of whatever the Russians were planning. What that was, no one could say. Supplies? Something worse? The only certainty was that the drones would be patrolling, silent and precise, ready to strike at the first mistake.\n\nAs you stepped back into the frost, the cold’s bite reminded you just how far north you’d come, how alien this place felt compared to the world you thought you knew. The jagged peaks outlined in moonlight towered over faint traces of steep, rocky surfaces, each slope a stark reminder of the overwhelming scale of this land. Back home, these mountains would be wonders, destinations for tourists and influencers. Here, they’re nameless—just one more jagged silhouette in an endless expanse. The miles you’ve traveled, the effort it’s taken, and the realization that you’ve barely scratched the surface of this untamed wilderness gnawed at you. It’s a land that feels untouched, unclaimed, and indifferent to human life.\n\nWhatever brought the Russians here had to be as ruthless and unyielding as the landscape itself.\n\nSomewhere ahead, the truth waited. And it wasn’t going to be a comfortable truth.",
+        "print_speed": 100,
+        "random_seed": 43
+    },
+    {
+        "id": "level5",
+        "title": "Downgraded Recon",
+        "grid_rows": 40,
+        "grid_cols": 10,
+        "player_start_pos": [-1, 2],
+        "end_pos": [37, 5],
+        "num_drones": 200,
+        "num_drone_groups": 6,
+        "completion_text": "You've successfully infiltrated deep into enemy territory!",
+        "intro_text": "The command bunker wasn’t what you expected. It was a makeshift operation, pieced together by officers who didn’t seem much better equipped than the rest of us. There was no central intelligence guiding them, no real plan—just a map covered in scribbles and a lot of grim determination. Whatever was left of the military’s structure and funding, it wasn’t here.\n\nThey’d pieced together what they could: scattered sightings, stories from locals, intercepted chatter, and patterns in drone activity. It all pointed to the same conclusion—this wasn’t just a opportunistic commercial mining operation. And the drones seemed to be zeroing in on our locations.\nYour next mission was simple on paper: head six clicks north along the river and recon a staging site. The officers believed it was the center of whatever the Russians were planning. What that was, no one could say. Supplies? Something worse? The only certainty was that the drones would be patrolling, silent and precise, ready to strike at the first mistake.\n\nAs you stepped back into the frost, the cold’s bite reminded you just how far north you’d come, how alien this place felt compared to the world you thought you knew. The jagged peaks outlined in moonlight towered over faint traces of steep, rocky surfaces, each slope a stark reminder of the overwhelming scale of this land. Back home, these mountains would be wonders, destinations for tourists and influencers. Here, they’re nameless—just one more jagged silhouette in an endless expanse. The miles you’ve traveled, the effort it’s taken, and the realization that you’ve barely scratched the surface of this untamed wilderness gnawed at you. It’s a land that feels untouched, unclaimed, and indifferent to human life.\n\nWhatever brought the Russians here had to be as ruthless and unyielding as the landscape itself.\n\nSomewhere ahead, the truth waited. And it wasn’t going to be a comfortable truth.",
+        "print_speed": 100,
+        "random_seed": 43
+    },
+    {
+        "id": "level6",
+        "title": "Return to the Trenches II",
+        "grid_rows": 20,
+        "grid_cols": 10,
+        "player_start_pos": [-1, 2],
+        "end_pos": [19, 7],
+        "num_drones": 55,
+        "num_drone_groups": 6,
+        "completion_text": "You've successfully infiltrated deep into enemy territory!",
+        "intro_text": "The command bunker wasn’t what you expected. It was a makeshift operation, pieced together by officers who didn’t seem much better equipped than the rest of us. There was no central intelligence guiding them, no real plan—just a map covered in scribbles and a lot of grim determination. Whatever was left of the military’s structure and funding, it wasn’t here.\n\nThey’d pieced together what they could: scattered sightings, stories from locals, intercepted chatter, and patterns in drone activity. It all pointed to the same conclusion—this wasn’t just a opportunistic commercial mining operation. And the drones seemed to be zeroing in on our locations.\nYour next mission was simple on paper: head six clicks north along the river and recon a staging site. The officers believed it was the center of whatever the Russians were planning. What that was, no one could say. Supplies? Something worse? The only certainty was that the drones would be patrolling, silent and precise, ready to strike at the first mistake.\n\nAs you stepped back into the frost, the cold’s bite reminded you just how far north you’d come, how alien this place felt compared to the world you thought you knew. The jagged peaks outlined in moonlight towered over faint traces of steep, rocky surfaces, each slope a stark reminder of the overwhelming scale of this land. Back home, these mountains would be wonders, destinations for tourists and influencers. Here, they’re nameless—just one more jagged silhouette in an endless expanse. The miles you’ve traveled, the effort it’s taken, and the realization that you’ve barely scratched the surface of this untamed wilderness gnawed at you. It’s a land that feels untouched, unclaimed, and indifferent to human life.\n\nWhatever brought the Russians here had to be as ruthless and unyielding as the landscape itself.\n\nSomewhere ahead, the truth waited. And it wasn’t going to be a comfortable truth.",
+        "print_speed": 100,
+        "random_seed": 43
+    },
+    {
+        "id": "level7",
+        "title": "Unresponsive",
+        "grid_rows": 20,
+        "grid_cols": 10,
+        "player_start_pos": [-1, 2],
+        "end_pos": [19, 7],
+        "num_drones": 55,
+        "num_drone_groups": 6,
+        "completion_text": "You've successfully infiltrated deep into enemy territory!",
+        "intro_text": "The command bunker wasn’t what you expected. It was a makeshift operation, pieced together by officers who didn’t seem much better equipped than the rest of us. There was no central intelligence guiding them, no real plan—just a map covered in scribbles and a lot of grim determination. Whatever was left of the military’s structure and funding, it wasn’t here.\n\nThey’d pieced together what they could: scattered sightings, stories from locals, intercepted chatter, and patterns in drone activity. It all pointed to the same conclusion—this wasn’t just a opportunistic commercial mining operation. And the drones seemed to be zeroing in on our locations.\nYour next mission was simple on paper: head six clicks north along the river and recon a staging site. The officers believed it was the center of whatever the Russians were planning. What that was, no one could say. Supplies? Something worse? The only certainty was that the drones would be patrolling, silent and precise, ready to strike at the first mistake.\n\nAs you stepped back into the frost, the cold’s bite reminded you just how far north you’d come, how alien this place felt compared to the world you thought you knew. The jagged peaks outlined in moonlight towered over faint traces of steep, rocky surfaces, each slope a stark reminder of the overwhelming scale of this land. Back home, these mountains would be wonders, destinations for tourists and influencers. Here, they’re nameless—just one more jagged silhouette in an endless expanse. The miles you’ve traveled, the effort it’s taken, and the realization that you’ve barely scratched the surface of this untamed wilderness gnawed at you. It’s a land that feels untouched, unclaimed, and indifferent to human life.\n\nWhatever brought the Russians here had to be as ruthless and unyielding as the landscape itself.\n\nSomewhere ahead, the truth waited. And it wasn’t going to be a comfortable truth.",
+        "print_speed": 100,
+        "random_seed": 43
     }
 ]

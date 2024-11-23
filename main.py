@@ -295,7 +295,8 @@ def initialize_web_game():
     NUM_DRONE_GROUPS = level_config['num_drone_groups']
 
     # Set random seed for reproducibility
-    RANDOM_SEED = level_config.get('random_seed', None)
+    RANDOM_SEED = level_config['random_seed']
+    # RANDOM_SEED = level_config.get('random_seed', None)
 
     # Initialize game state
     player_pos, end_pos, drones = initialize_game(
