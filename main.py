@@ -33,6 +33,10 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'  # Specify the login view endpoint
 
+# Add this line to create tables when the app starts
+with app.app_context():
+    db.create_all()
+
 # Define symbols
 EMPTY_SYMBOL = '.'
 PLAYER_SYMBOL = 'P'
@@ -333,6 +337,11 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/')
+def home():
+    return render_template('home.html')
+
+@app.route('/level_selection')
+@login_required
 def level_selection():
     # Render the level selection screen
     return render_template('level_selection.html', levels=LEVELS)
