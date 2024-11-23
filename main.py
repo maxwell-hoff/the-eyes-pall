@@ -1,8 +1,11 @@
 import os
 import random
 import json
-from flask import Flask, render_template, request, session, jsonify, redirect, url_for
+from flask import Flask, render_template, request, session, jsonify, redirect, url_for, flash
 from flask_session import Session
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # --------------------- Load Levels Configuration ---------------------
 
@@ -14,7 +17,14 @@ with open('levels.json', 'r') as f:
 app = Flask(__name__)
 app.secret_key = 'your-secret-key'  # Replace with a secure random key
 app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///users.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 Session(app)
+
+db = SQLAlchemy(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'  # Specify the login view endpoint
 
 # Define symbols
 EMPTY_SYMBOL = '.'
@@ -40,6 +50,23 @@ def is_adjacent_to_player_start(pos, player_start_pos, distance=1):
     Check if a position is within a certain distance from the player's starting position.
     """
     return abs(pos[0] - player_start_pos[0]) + abs(pos[1] - player_start_pos[1]) <= distance
+
+# --------------------- User Model ---------------------
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), nullable=False, unique=True)
+    password = db.Column(db.String(150), nullable=False)
+    # You can add more fields like progress, etc.
+
+    def __repr__(self):
+        return f'<User {self.username}>'
+
+# --------------------- User Loader ---------------------
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # --------------------- Game Definitions ---------------------
 
@@ -247,6 +274,56 @@ def is_collision(player_pos, drones):
     return False
 
 # --------------------- Flask Web Interface ---------------------
+
+# --------------------- Authentication Routes ---------------------
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        # Check for special characters in username
+        if not username.isalnum():
+            flash('Username must be alphanumeric and contain no special characters.')
+            return redirect(url_for('login'))
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password, password):
+            login_user(user)
+            flash('Logged in successfully.')
+            return redirect(url_for('level_selection'))
+        else:
+            flash('Invalid username or password.')
+            return redirect(url_for('login'))
+    return render_template('login.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        # Check for special characters in username
+        if not username.isalnum():
+            flash('Username must be alphanumeric and contain no special characters.')
+            return redirect(url_for('signup'))
+        # Check if username already exists
+        user = User.query.filter_by(username=username).first()
+        if user:
+            flash('Username already exists. Please choose a different one.')
+            return redirect(url_for('signup'))
+        # Create new user
+        new_user = User(username=username, password=generate_password_hash(password))
+        db.session.add(new_user)
+        db.session.commit()
+        flash('Account created successfully. Please log in.')
+        return redirect(url_for('login'))
+    return render_template('signup.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out.')
+    return redirect(url_for('login'))
 
 @app.route('/')
 def level_selection():
@@ -590,4 +667,7 @@ def reset():
 # --------------------- Main Entry Point ---------------------
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    with app.app_context():
+        db.create_all()
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)

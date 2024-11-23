@@ -61,6 +61,16 @@
 </head>
 <body>
     <h1>Select a Level</h1>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="message">
+                {% for message in messages %}
+                    {{ message }}<br>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    <p>Welcome, {{ current_user.username }} | <a href="{{ url_for('logout') }}">Logout</a></p>
     <div id="level-container">
         {% for level in levels %}
             <div class="level-box" onclick="startGame('{{ level.id }}')">

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>The Eye's Pall - Sign Up</title>
+    <style>
+        /* Same styles as login.html */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        form {
+            display: inline-block;
+            text-align: left;
+            margin-top: 20px;
+        }
+        input[type="text"], input[type="password"] {
+            width: 250px;
+            padding: 8px;
+            margin-bottom: 10px;
+            display: block;
+        }
+        input[type="submit"] {
+            width: 100%;
+            padding: 8px;
+        }
+        .message {
+            color: red;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>The Eye's Pall</h1>
+    <h2>Sign Up</h2>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="message">
+                {% for message in messages %}
+                    {{ message }}<br>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    <form action="{{ url_for('signup') }}" method="post">
+        <label for="username">Username (No special characters):</label>
+        <input type="text" name="username" id="username" pattern="[A-Za-z0-9]+" required>
+
+        <label for="password">Password:</label>
+        <input type="password" name="password" id="password" required>
+
+        <input type="submit" value="Sign Up">
+    </form>
+    <p>Already have an account? <a href="{{ url_for('login') }}">Log in here</a></p>
+</body>
+</html>

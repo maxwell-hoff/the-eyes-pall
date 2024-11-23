@@ -1,2 +1,7 @@
-flask
-flask_session
+Flask
+Flask-Login
+Flask-Session
+Flask-SQLAlchemy
+psycopg2-binary
+Werkzeug
+gunicorn
