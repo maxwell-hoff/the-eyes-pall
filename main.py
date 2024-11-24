@@ -65,6 +65,7 @@ def is_adjacent_to_player_start(pos, player_start_pos, distance=1):
 # --------------------- User Model ---------------------
 
 class User(db.Model, UserMixin):
+    __tablename__ = 'users'  # specify the table name
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), nullable=False, unique=True)
     password = db.Column(db.String(150), nullable=False)
