@@ -1,19 +1,5 @@
 [
     {
-        "id": "level1",
-        "title": "Training",
-        "grid_rows": 5,
-        "grid_cols": 5,
-        "player_start_pos": [-1, 1],
-        "end_pos": [4, 4],
-        "num_drones": 2,
-        "num_drone_groups": 1,
-        "completion_text": "Congratulations on completing The Front Line!",
-        "intro_text": "You crouch low in the trench, eyes locked on the frostbitten valley ahead. Somewhere beyond the shattered trees and cratered earth lies the command bunker, your destination. Frost clings to the ground like glass, glinting faintly under the moonlight. The air is sharp and cold in your lungs, carrying with it the faintest hints of something wrong: the acrid tang of burning brush, the chemical bite of phosphorus, and something worse—something rotting.\\nIt could almost be peaceful if not for the signs of what waits out there. The distant, desperate yell of someone crying for help cuts through the stillness. It is bait. You know it. A splintered tree and blackened crater on the hillside speak to something calculated—something far more deliberate than random skirmishes. And then you see it: blinking red lights further down the valley, like tiny, watchful eyes.\\nThe Eye.\\nYou have heard the stories. Russian drones, silent and relentless, patrolling the night. Invisible until they are not. And by the time you see them, it is often too late. They do not aim to kill outright. They target your legs, leaving you to scream and cry for help. Bait for the next poor soul who dares to cross. It is precision warfare, faster and more ruthless than anything a human could manage. This is not the war you read about in history books. Strength does not matter. Bravery does not matter. Only survival does.\\nYour orders are simple: move up the river along the hillside and reach the command bunker. Resupply. Regroup. Command has jammed the enemy drones temporarily, forcing them to reveal their positions through their anti-jamming mechanism. But the jamming will not last forever, and when it ends, the drones will go invisible again. Time is not on your side.\\nYour heart pounds as your commanding officer nods. The weight of everything—duty, fear, inevitability—presses on your chest. This is war now: a game of pattern recognition. If you can read the gaps in their coverage, you will make it to the bunker. \\nYou force your legs to move. The cold air burns your face. There is no turning back.",
-        "print_speed": 100,
-        "random_seed": 42
-    },
-    {
         "id": "level2",
         "title": "The Front Line",
         "grid_rows": 15,
