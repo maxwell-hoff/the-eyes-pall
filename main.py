@@ -76,8 +76,9 @@ class User(db.Model, UserMixin):
     __tablename__ = 'users'  # specify the table name
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), nullable=False, unique=True)
-    password = db.Column(db.String(150), nullable=False)
-    # You can add more fields like progress, etc.
+    password = db.Column(db.String(512), nullable=False)  # Increased length to 512
+    # Alternatively, use db.Text for unlimited length
+    # password = db.Column(db.Text, nullable=False)
 
     def __repr__(self):
         return f'<User {self.username}>'
