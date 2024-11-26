@@ -4,9 +4,14 @@ import json
 from flask import Flask, render_template, request, session, jsonify, redirect, url_for, flash
 from flask_session import Session
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+from flask_migrate import Migrate, upgrade as flask_migrate_upgrade
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.exc import OperationalError
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # --------------------- Load Levels Configuration ---------------------
 
@@ -16,30 +21,34 @@ with open('levels.json', 'r') as f:
 # --------------------- Define Global Variables ---------------------
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key'  # Replace with a secure random key
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key')  # Secure your secret key
+
+# Session configuration
 app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 
 # Adjust the database URI to be compatible with SQLAlchemy
 uri = os.environ.get('DATABASE_URL')  # Get the database URL from environment
 
-if uri and uri.startswith('postgres://'):
-    # Fix the URI for SQLAlchemy if it starts with 'postgres://'
-    uri = uri.replace('postgres://', 'postgresql://', 1)
-else:
-    # Use SQLite for local development
+if uri is None:
+    # Running locally, use SQLite
     uri = 'sqlite:///users.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = uri
+else:
+    # Heroku PostgreSQL
+    if uri.startswith('postgres://'):
+        # Fix the URI for SQLAlchemy if it starts with 'postgres://'
+        uri = uri.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = uri
 
-app.config['SQLALCHEMY_DATABASE_URI'] = uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-Session(app)
 
 db = SQLAlchemy(app)
-
 migrate = Migrate(app, db)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'  # Specify the login view endpoint
+login_manager.login_view = 'login' 
 
 # Add this line to create tables when the app starts
 with app.app_context():
@@ -690,10 +699,20 @@ def reset():
     initialize_web_game()
     return jsonify({'message': 'Game has been reset.', 'game_over': False})
 
+# --------------------- Apply Migrations Function ---------------------
+
+def apply_migrations():
+    with app.app_context():
+        try:
+            # Try to run a simple query to check if the database is initialized
+            db.session.execute('SELECT 1')
+        except OperationalError:
+            # Database is not initialized, apply migrations
+            flask_migrate_upgrade()
+
 # --------------------- Main Entry Point ---------------------
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
+    apply_migrations()
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=True, host='0.0.0.0', port=port)
