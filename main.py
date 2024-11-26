@@ -4,6 +4,7 @@ import json
 from flask import Flask, render_template, request, session, jsonify, redirect, url_for, flash
 from flask_session import Session
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -17,18 +18,25 @@ with open('levels.json', 'r') as f:
 app = Flask(__name__)
 app.secret_key = 'your-secret-key'  # Replace with a secure random key
 app.config['SESSION_TYPE'] = 'filesystem'
-# Adjust the database URI to be compatible with SQLAlchemy
-uri = os.environ.get('DATABASE_URL', 'sqlite:///users.db')
 
-# Fix the URI for SQLAlchemy if it starts with 'postgres://'
-if uri.startswith('postgres://'):
+# Adjust the database URI to be compatible with SQLAlchemy
+uri = os.environ.get('DATABASE_URL')  # Get the database URL from environment
+
+if uri and uri.startswith('postgres://'):
+    # Fix the URI for SQLAlchemy if it starts with 'postgres://'
     uri = uri.replace('postgres://', 'postgresql://', 1)
+else:
+    # Use SQLite for local development
+    uri = 'sqlite:///users.db'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 Session(app)
 
 db = SQLAlchemy(app)
+
+migrate = Migrate(app, db)
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'  # Specify the login view endpoint

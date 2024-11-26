@@ -1,6 +1,7 @@
 Flask
 Flask-Login
 Flask-Session
+Flask-Migrate
 Flask-SQLAlchemy
 psycopg2-binary
 Werkzeug
