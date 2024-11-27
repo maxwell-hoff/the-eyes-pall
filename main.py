@@ -51,8 +51,8 @@ login_manager.init_app(app)
 login_manager.login_view = 'login' 
 
 # Add this line to create tables when the app starts
-with app.app_context():
-    db.create_all()
+# with app.app_context():
+#     db.create_all()
 
 # Define symbols
 EMPTY_SYMBOL = '.'
