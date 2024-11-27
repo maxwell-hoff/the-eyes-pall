@@ -273,6 +273,53 @@ def initialize_game(GRID_ROWS, GRID_COLS, PLAYER_START_POS, END_POS, NUM_DRONES,
 
     return player_pos, end_pos, drones
 
+def update_user_stats(won):
+    level_id = session.get('level_id')
+    if level_id is None:
+        level_id = 'unknown'  # Handle missing level_id
+
+    # Update total tries
+    current_user.total_tries = (current_user.total_tries or 0) + 1
+
+    # Update per-level tries
+    # Find or create UserLevelStats for this user and level
+    level_stats = UserLevelStats.query.filter_by(user_id=current_user.id, level_id=level_id).first()
+    if level_stats is None:
+        level_stats = UserLevelStats(user_id=current_user.id, level_id=level_id, tries=1)
+        db.session.add(level_stats)
+    else:
+        level_stats.tries += 1
+
+    # If the user has won, update highest_level_completed if necessary
+    if won:
+        level_stats.completed = True
+
+        # Determine level order
+        level_indices = {level['id']: idx for idx, level in enumerate(LEVELS)}
+        current_level_index = level_indices.get(level_id, -1)
+
+        # Get current highest level index
+        if current_user.highest_level_completed:
+            highest_level_index = level_indices.get(current_user.highest_level_completed, -1)
+        else:
+            highest_level_index = -1
+
+        if current_level_index > highest_level_index:
+            current_user.highest_level_completed = level_id
+
+    db.session.commit()
+
+    # Return updated stats
+    total_tries = current_user.total_tries
+    highest_level_completed = current_user.highest_level_completed or 'None'
+    level_tries = level_stats.tries
+
+    return {
+        'total_tries': total_tries,
+        'highest_level_completed': highest_level_completed,
+        'level_tries': level_tries
+    }
+
 def draw_grid(player_pos, end_pos, drones, GRID_ROWS_, GRID_COLS_):
     """
     Create the current state of the grid.
@@ -603,7 +650,7 @@ def move():
     if 0 <= new_r < GRID_ROWS and 0 <= new_c < GRID_COLS:
         if is_collision(player_pos, drones):
             session['game_over'] = True
-            session['message'] = "💥 Oh no! You've been caught by a drone. Game Over. 💥"
+            session['message'] = "A gunshot rings out in the distnace. You turn the radio frequency preemptively."
             # Prepare start_box data
             start_box_symbol = PLAYER_SYMBOL if player_pos == PLAYER_START_POS else EMPTY_SYMBOL
             return jsonify({
@@ -611,7 +658,8 @@ def move():
                 'game_over': True,
                 'player_move': {'from': old_player_pos, 'to': player_pos},
                 'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol},
-                'player_pos': session['player_pos']
+                'player_pos': session['player_pos'],
+                'updated_stats': updated_stats
             })
 
     # Record drone movements
@@ -633,6 +681,7 @@ def move():
         if is_collision(player_pos, drones):
             session['game_over'] = True
             session['won'] = False
+            updated_stats = update_user_stats(won=False)
             session['message'] = "A gunshot rings out in the distnace. You turn the radio frequency preemptively."
             # Update drones in session
             session['drones'] = [
@@ -652,13 +701,15 @@ def move():
                 'player_move': {'from': old_player_pos, 'to': player_pos},
                 'drone_moves': drone_moves,
                 'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol},
-                'player_pos': session['player_pos']
+                'player_pos': session['player_pos'],
+                'updated_stats': updated_stats
             })
 
     # Check if player has reached the end
     if player_pos == tuple(session['end_pos']):
         session['game_over'] = True
         session['won'] = True
+        updated_stats = update_user_stats(won=True)
         session['message'] = "You've reached your target."
         # Update drones in session
         session['drones'] = [
@@ -678,7 +729,8 @@ def move():
             'player_move': {'from': old_player_pos, 'to': player_pos},
             'drone_moves': drone_moves,
             'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol},
-            'player_pos': session['player_pos']
+            'player_pos': session['player_pos'],
+            'updated_stats': updated_stats
         })
 
     # Update drones in session
@@ -699,6 +751,7 @@ def move():
     if session['turn'] >= session.get('max_turns', 200):
         session['game_over'] = True
         session['won'] = False
+        updated_stats = update_user_stats(won=False)
         session['message'] = "Drone tracking goes dark. There's nothing more you can do to help."
         # Prepare start_box data
         start_box_symbol = PLAYER_SYMBOL if player_pos == PLAYER_START_POS else EMPTY_SYMBOL
@@ -769,7 +822,13 @@ def move():
 def reset():
     """Reset the game state."""
     initialize_web_game()
-    return jsonify({'message': 'Game has been reset.', 'game_over': False})
+    # Retrieve updated stats
+    updated_stats = {
+        'total_tries': current_user.total_tries or 0,
+        'highest_level_completed': current_user.highest_level_completed or 'None',
+        'level_tries': 0  # Reset level tries on reset if appropriate
+    }
+    return jsonify({'message': 'Game has been reset.', 'game_over': False, 'updated_stats': updated_stats})
 
 # --------------------- Apply Migrations Function ---------------------
 

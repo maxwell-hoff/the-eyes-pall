@@ -61,6 +61,11 @@ document.addEventListener('DOMContentLoaded', () => {
             gameOver = data.game_over;
             document.getElementById('message').innerText = data.message;
             fetchGameState(true); // Re-render the grid
+    
+            // Update stats if available
+            if (data.updated_stats) {
+                updateStats(data.updated_stats);
+            }
         });
     });
 });
@@ -133,6 +138,11 @@ function makeMove(move) {
             if (data.game_over) {
                 // If game over, fetch the latest grid state
                 fetchGameState();
+
+                // Update the stats displayed if available
+                if (data.updated_stats) {
+                    updateStats(data.updated_stats);
+                }
             } else if (data.player_move) {
                 animateMovements(data);
             } else {
@@ -140,6 +150,12 @@ function makeMove(move) {
                 fetchGameState();
             }
         });
+}
+
+function updateStats(updatedStats) {
+    document.getElementById('total-tries').innerText = 'Total Casualties: ' + updatedStats.total_tries;
+    document.getElementById('level-tries').innerText = 'Casualties for This Level: ' + updatedStats.level_tries;
+    document.getElementById('highest-level-completed').innerText = 'Highest Mission Completed: ' + updatedStats.highest_level_completed;
 }
 
 function renderGrid(grid, startBox) {
