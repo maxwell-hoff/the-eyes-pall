@@ -27,7 +27,7 @@ def upgrade():
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.drop_table('user')
+    op.drop_table('users')
     with op.batch_alter_table('users', schema=None) as batch_op:
         batch_op.add_column(sa.Column('total_tries', sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column('highest_level_completed', sa.String(length=50), nullable=True))
@@ -49,7 +49,7 @@ def downgrade():
         batch_op.drop_column('highest_level_completed')
         batch_op.drop_column('total_tries')
 
-    op.create_table('user',
+    op.create_table('users',
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('username', sa.VARCHAR(length=150), nullable=False),
     sa.Column('password', sa.VARCHAR(length=150), nullable=False),
