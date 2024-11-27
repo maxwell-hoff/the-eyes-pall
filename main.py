@@ -85,12 +85,25 @@ class User(db.Model, UserMixin):
     __tablename__ = 'users'  # specify the table name
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), nullable=False, unique=True)
-    password = db.Column(db.String(512), nullable=False)  # Increased length to 512
-    # Alternatively, use db.Text for unlimited length
-    # password = db.Column(db.Text, nullable=False)
+    password = db.Column(db.String(512), nullable=False)
+    total_tries = db.Column(db.Integer, default=0)
+    highest_level_completed = db.Column(db.String(50), default='')
 
     def __repr__(self):
         return f'<User {self.username}>'
+
+class UserLevelStats(db.Model):
+    __tablename__ = 'user_level_stats'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    level_id = db.Column(db.String(50), nullable=False)
+    tries = db.Column(db.Integer, default=0)
+    completed = db.Column(db.Boolean, default=False)
+
+    user = db.relationship('User', backref=db.backref('level_stats', lazy=True))
+
+    def __repr__(self):
+        return f'<UserLevelStats user_id={self.user_id} level_id={self.level_id} tries={self.tries}>'
 
 # --------------------- User Loader ---------------------
 
@@ -382,6 +395,7 @@ def level_intro(level_id):
     return render_template('level_intro.html', intro_text=intro_text, print_speed=print_speed, level_id=level_id)
 
 @app.route('/start_game/<level_id>')
+@login_required
 def start_game(level_id):
     # Find the level configuration
     level_config = next((level for level in LEVELS if level['id'] == level_id), None)
@@ -390,6 +404,7 @@ def start_game(level_id):
 
     # Store level configuration in session
     session['level_config'] = level_config
+    session['level_id'] = level_id  # Store level_id in session
     session['initialized'] = False  # Reset game initialization
 
     return redirect(url_for('game'))
@@ -436,13 +451,27 @@ def initialize_web_game():
     session['initialized'] = True
 
 @app.route('/game')
+@login_required
 def game():
     # Initialize the game if not already started
     if not session.get('initialized', False):
         initialize_web_game()
-    return render_template('index.html')
+
+    # Get user stats
+    total_tries = current_user.total_tries or 0
+    highest_level_completed = current_user.highest_level_completed or 'None'
+
+    # Get per-level tries
+    level_id = session.get('level_id')
+    level_stats = UserLevelStats.query.filter_by(user_id=current_user.id, level_id=level_id).first()
+    level_tries = level_stats.tries if level_stats else 0
+
+    return render_template('index.html', total_tries=total_tries,
+                           highest_level_completed=highest_level_completed,
+                           level_tries=level_tries)
 
 @app.route('/game_state', methods=['GET'])
+@login_required
 def get_game_state():
     GRID_ROWS = session['grid_rows']
     GRID_COLS = session['grid_cols']
@@ -507,6 +536,7 @@ def is_valid_move_from_start_box(move, PLAYER_START_POS, GRID_ROWS, GRID_COLS):
     return False  # Should not happen
 
 @app.route('/move', methods=['POST'])
+@login_required
 def move():
     if session.get('game_over', False):
         return jsonify({'message': session.get('message', 'Game Over'), 'game_over': True})
@@ -602,7 +632,8 @@ def move():
     if 0 <= player_pos[0] < GRID_ROWS and 0 <= player_pos[1] < GRID_COLS:
         if is_collision(player_pos, drones):
             session['game_over'] = True
-            session['message'] = "💥 A drone has moved into your square. Game Over. 💥"
+            session['won'] = False
+            session['message'] = "A gunshot rings out in the distnace. You turn the radio frequency preemptively."
             # Update drones in session
             session['drones'] = [
                 {
@@ -627,7 +658,8 @@ def move():
     # Check if player has reached the end
     if player_pos == tuple(session['end_pos']):
         session['game_over'] = True
-        session['message'] = "🎉 Congratulations! You've reached the end and won the game! 🎉"
+        session['won'] = True
+        session['message'] = "You've reached your target."
         # Update drones in session
         session['drones'] = [
             {
@@ -666,7 +698,8 @@ def move():
     # Optional: Check for max turns
     if session['turn'] >= session.get('max_turns', 200):
         session['game_over'] = True
-        session['message'] = "⏰ Maximum turns reached. Game Over."
+        session['won'] = False
+        session['message'] = "Drone tracking goes dark. There's nothing more you can do to help."
         # Prepare start_box data
         start_box_symbol = PLAYER_SYMBOL if player_pos == PLAYER_START_POS else EMPTY_SYMBOL
         return jsonify({
@@ -679,6 +712,44 @@ def move():
         })
 
     session['message'] = ''
+
+    # When the game is over, update user's stats
+    if session['game_over']:
+        level_id = session.get('level_id')
+        if level_id is None:
+            level_id = 'unknown'  # Handle missing level_id
+
+        # Update total tries
+        current_user.total_tries = (current_user.total_tries or 0) + 1
+
+        # Update per-level tries
+        # Find or create UserLevelStats for this user and level
+        level_stats = UserLevelStats.query.filter_by(user_id=current_user.id, level_id=level_id).first()
+        if level_stats is None:
+            level_stats = UserLevelStats(user_id=current_user.id, level_id=level_id, tries=1)
+            db.session.add(level_stats)
+        else:
+            level_stats.tries += 1
+
+        # If the user has won, update highest_level_completed if necessary
+        if session.get('won'):
+            level_stats.completed = True
+
+            # Determine level order
+            level_indices = {level['id']: idx for idx, level in enumerate(LEVELS)}
+            current_level_index = level_indices.get(level_id, -1)
+
+            # Get current highest level index
+            if current_user.highest_level_completed:
+                highest_level_index = level_indices.get(current_user.highest_level_completed, -1)
+            else:
+                highest_level_index = -1
+
+            if current_level_index > highest_level_index:
+                current_user.highest_level_completed = level_id
+
+        db.session.commit()
+
     # Prepare start_box data
     start_box_symbol = PLAYER_SYMBOL if player_pos == PLAYER_START_POS else EMPTY_SYMBOL
 
@@ -694,6 +765,7 @@ def move():
 # --------------------- Flask Initialization ---------------------
 
 @app.route('/reset', methods=['POST'])
+@login_required
 def reset():
     """Reset the game state."""
     initialize_web_game()

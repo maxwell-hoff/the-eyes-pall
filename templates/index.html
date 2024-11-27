@@ -45,8 +45,14 @@
     </style>
 </head>
 <body>
-    <h1>The Eye's Pall</h1>
-    <p>Use 'W', 'a', 's', and 'd' to move. Press Enter to skip a turn. Reach the 'X' to win.</p>
+    <h1>The Shadow of The Eye</h1>
+    <p>Use 'w', 'a', 's', and 'd' to move. Press 'Enter' to skip a turn. Mission objective: reach 'X'.</p>
+
+    <div id="user-stats">
+        <p>Total Casualties: {{ total_tries }}</p>
+        <p>Casualties for This Level: {{ level_tries }}</p>
+        <p>Highest Mission Completed: {{ highest_level_completed }}</p>
+    </div>
     <div id="game-container"></div>
     <div id="message"></div>
     <div id="controls">
