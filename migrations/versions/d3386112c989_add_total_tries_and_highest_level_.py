@@ -1,8 +1,8 @@
-"""initial migration
+"""Add total_tries and highest_level_completed to User, create UserLevelStats.
 
-Revision ID: c421e40d0e56
+Revision ID: d3386112c989
 Revises: 
-Create Date: 2024-11-27 08:00:53.685441
+Create Date: 2024-11-27 08:26:45.590611
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'c421e40d0e56'
+revision = 'd3386112c989'
 down_revision = None
 branch_labels = None
 depends_on = None
