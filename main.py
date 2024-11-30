@@ -819,7 +819,7 @@ def overall_leaderboard():
     from sqlalchemy import case
 
     level_order_case = case(
-        (User.highest_level_completed == level_id, index) for level_id, index in level_indices.items()
+        [(User.highest_level_completed == level_id, index) for level_id, index in level_indices.items()]
     ).else_(-1)
 
     top_users = (db.session.query(User.username, User.highest_level_completed, User.highest_level_completed_date)
