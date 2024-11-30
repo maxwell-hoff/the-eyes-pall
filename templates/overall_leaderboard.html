@@ -38,13 +38,13 @@
             <th>Highest Level Completed</th>
             <th>Date Completed</th>
         </tr>
-        {% for idx, user in enumerate(top_users) %}
-        <tr>
-            <td>{{ idx + 1 }}</td>
-            <td>{{ user.username }}</td>
-            <td>{{ user.highest_level_completed }}</td>
-            <td>{{ user.highest_level_completed_date.strftime('%Y-%m-%d %H:%M:%S') if user.highest_level_completed_date else 'N/A' }}</td>
-        </tr>
+        {% for user in top_users %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.highest_level_completed }}</td>
+                <td>{{ user.highest_level_completed_date.strftime('%Y-%m-%d %H:%M:%S') if user.highest_level_completed_date else 'N/A' }}</td>
+            </tr>
         {% endfor %}
     </table>
     <button onclick="window.history.back()">Back</button>

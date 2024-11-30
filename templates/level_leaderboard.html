@@ -38,13 +38,13 @@
             <th>Tries</th>
             <th>Date Completed</th>
         </tr>
-        {% for idx, player in enumerate(top_players) %}
-        <tr>
-            <td>{{ idx + 1 }}</td>
-            <td>{{ player.username }}</td>
-            <td>{{ player.tries }}</td>
-            <td>{{ player.completion_date.strftime('%Y-%m-%d %H:%M:%S') if player.completion_date else 'N/A' }}</td>
-        </tr>
+        {% for player in top_players %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ player.username }}</td>
+                <td>{{ player.tries }}</td>
+                <td>{{ player.completion_date.strftime('%Y-%m-%d %H:%M:%S') if player.completion_date else 'N/A' }}</td>
+            </tr>
         {% endfor %}
     </table>
     <button onclick="window.history.back()">Back</button>
