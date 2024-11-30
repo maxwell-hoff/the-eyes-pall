@@ -4,8 +4,17 @@
     <meta charset="UTF-8">
     <title>The Shadow of The Eye</title>
     <style>
-        body {
+        /* Existing styles */
+        body, html {
             font-family: Arial, sans-serif;
+            margin: 0; /* Add margin and padding reset */
+            padding: 0;
+            height: 100%; /* Set body height to 100% */
+        }
+        #main-content {
+            overflow: auto;
+            padding-bottom: 220px; /* Make room for movement buttons */
+            box-sizing: border-box;
         }
         #game-container {
             display: inline-block;
@@ -42,26 +51,70 @@
         #controls {
             margin-top: 20px;
         }
+
+        /* Movement buttons styles */
+        #movement-buttons {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #f9f9f9; /* Optional background */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1000; /* Ensure buttons stay on top */
+        }
+        #movement-buttons button {
+            width: 100%;
+            height: 60px; /* Adjust as needed */
+            font-size: 24px;
+        }
+        #left-right-buttons {
+            display: flex;
+            width: 100%;
+        }
+        #left-right-buttons button {
+            flex: 1;
+        }
+        #game-container {
+            /* Adjust the max height if needed */
+            /* max-height: calc(100vh - 200px); */
+            /* overflow: auto; */
+        }
     </style>
 </head>
 <body>
-    <h1>The Shadow of The Eye</h1>
-    <p>Use 'w', 'a', 's', and 'd' to move. Press 'Enter' to skip a turn. Mission objective: reach 'X'.</p>
+    <div id="main-content">
+        <h1>The Shadow of The Eye</h1>
+        <p>Use 'w', 'a', 's', and 'd' to move. Press 'Enter' to skip a turn. Mission objective: reach 'X'.</p>
 
-    <div id="user-stats">
-        <p id="total-tries">Total Casualties: {{ total_tries }}</p>
-        <p id="level-tries">Casualties for This Level: {{ level_tries }}</p>
-        <p id="highest-level-completed">Highest Mission Completed: {{ highest_level_completed }}</p>
+        <div id="user-stats">
+            <p id="total-tries">Total Casualties: {{ total_tries }}</p>
+            <p id="level-tries">Casualties for This Level: {{ level_tries }}</p>
+            <p id="highest-level-completed">Highest Mission Completed: {{ highest_level_completed }}</p>
+        </div>
+        <div id="game-container"></div>
+        <div id="message"></div>
+        <div id="controls">
+            <button id="reset-button">Reset Game</button>
+            <button id="back-button">Back to Level Selection</button>
+        </div>
+        <div class="legend">
+            <p>Legend: P=Player, X=End, T1/T2/T3/T4/T5=Drone Groups, *=Multiple Drones, .=Empty</p>
+        </div>
     </div>
-    <div id="game-container"></div>
-    <div id="message"></div>
-    <div id="controls">
-        <button id="reset-button">Reset Game</button>
-        <button id="back-button">Back to Level Selection</button>
+
+    <!-- Movement buttons -->
+    <div id="movement-buttons">
+        <button id="move-up">Up</button>
+        <div id="left-right-buttons">
+            <button id="move-left">Left</button>
+            <button id="move-stay">Stay</button>
+            <button id="move-right">Right</button>
+        </div>
+        <button id="move-down">Down</button>
     </div>
-    <div class="legend">
-        <p>Legend: P=Player, X=End, T1/T2/T3/T4/T5=Drone Groups, *=Multiple Drones, .=Empty</p>
-    </div>
+
     <script src="{{ url_for('static', filename='game.js') }}"></script>
     <script>
         document.getElementById('back-button').addEventListener('click', () => {

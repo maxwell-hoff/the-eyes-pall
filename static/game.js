@@ -68,7 +68,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+    // Add event listeners for movement buttons
+    document.getElementById('move-up').addEventListener('click', () => {
+        handleMoveButton('UP');
+    });
+    document.getElementById('move-down').addEventListener('click', () => {
+        handleMoveButton('DOWN');
+    });
+    document.getElementById('move-left').addEventListener('click', () => {
+        handleMoveButton('LEFT');
+    });
+    document.getElementById('move-right').addEventListener('click', () => {
+        handleMoveButton('RIGHT');
+    });
+    document.getElementById('move-stay').addEventListener('click', () => {
+        handleMoveButton('STAY');
+    });
 });
+
+function handleMoveButton(move) {
+    if (gameOver) return;
+
+    if (canMove(move)) {
+        makeMove(move);
+    } else {
+        displayMessage("🚫 You can't move further in that direction!");
+    }
+}
 
 // Function to determine if the player can move in the specified direction
 function canMove(move) {
