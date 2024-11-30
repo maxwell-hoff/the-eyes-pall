@@ -66,8 +66,8 @@
         }
         #movement-buttons button {
             width: 100%;
-            height: 30px; /* Adjust as needed */
-            font-size: 12px;
+            height: 60px; /* Adjust as needed */
+            font-size: 24px;
         }
         #left-right-buttons {
             display: flex;
@@ -97,6 +97,7 @@
         <div id="message"></div>
         <div id="controls">
             <button id="reset-button">Reset Game</button>
+            <button id="level-leaderboard-button">Level Leaderboard</button>
             <button id="back-button">Back to Level Selection</button>
         </div>
         <div class="legend">
@@ -119,6 +120,9 @@
     <script>
         document.getElementById('back-button').addEventListener('click', () => {
             window.location.href = '/';
+        });
+        document.getElementById('level-leaderboard-button').addEventListener('click', () => {
+            window.location.href = '/level_leaderboard/{{ level_id }}';
         });
     </script>
 </body>

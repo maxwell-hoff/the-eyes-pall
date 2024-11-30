@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Level {{ level_id }} Leaderboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        table {
+            margin: 0 auto;
+            border-collapse: collapse;
+            width: 80%;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center; /* Center-align content */
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Level {{ level_id }} Leaderboard</h1>
+    <table>
+        <tr>
+            <th>Rank</th>
+            <th>Username</th>
+            <th>Tries</th>
+            <th>Date Completed</th>
+        </tr>
+        {% for idx, player in enumerate(top_players) %}
+        <tr>
+            <td>{{ idx + 1 }}</td>
+            <td>{{ player.username }}</td>
+            <td>{{ player.tries }}</td>
+            <td>{{ player.completion_date.strftime('%Y-%m-%d %H:%M:%S') if player.completion_date else 'N/A' }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <button onclick="window.history.back()">Back</button>
+</body>
+</html>

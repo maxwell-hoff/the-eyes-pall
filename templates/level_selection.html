@@ -57,6 +57,22 @@
                 line-height: 45px;
             }
         }
+        /* Add styles for the leaderboard button */
+        .leaderboard-button {
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .leaderboard-button:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -71,6 +87,7 @@
         {% endif %}
     {% endwith %}
     <p>Welcome, {{ current_user.username }} | <a href="{{ url_for('logout') }}">Logout</a></p>
+    <button class="leaderboard-button" onclick="window.location.href='/overall_leaderboard'">Overall Leaderboard</button>
     <div id="level-container">
         {% for level in levels %}
             <div class="level-box" onclick="startGame('{{ level.id }}')">

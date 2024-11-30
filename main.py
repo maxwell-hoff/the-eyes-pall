@@ -9,6 +9,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, U
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import OperationalError
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -88,6 +89,7 @@ class User(db.Model, UserMixin):
     password = db.Column(db.String(512), nullable=False)
     total_tries = db.Column(db.Integer, default=0)
     highest_level_completed = db.Column(db.String(50), default='')
+    highest_level_completed_date = db.Column(db.DateTime)  # New field
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -99,6 +101,7 @@ class UserLevelStats(db.Model):
     level_id = db.Column(db.String(50), nullable=False)
     tries = db.Column(db.Integer, default=0)
     completed = db.Column(db.Boolean, default=False)
+    completion_date = db.Column(db.DateTime)  # New field
 
     user = db.relationship('User', backref=db.backref('level_stats', lazy=True))
 
@@ -294,6 +297,10 @@ def update_user_stats(won):
     if won:
         level_stats.completed = True
 
+        # Set completion date if not already set
+        if level_stats.completion_date is None:
+            level_stats.completion_date = datetime.utcnow()
+
         # Determine level order
         level_indices = {level['id']: idx for idx, level in enumerate(LEVELS)}
         current_level_index = level_indices.get(level_id, -1)
@@ -306,6 +313,7 @@ def update_user_stats(won):
 
         if current_level_index > highest_level_index:
             current_user.highest_level_completed = level_id
+            current_user.highest_level_completed_date = datetime.utcnow()
 
     db.session.commit()
 
@@ -514,8 +522,9 @@ def game():
     level_tries = level_stats.tries if level_stats else 0
 
     return render_template('index.html', total_tries=total_tries,
-                           highest_level_completed=highest_level_completed,
-                           level_tries=level_tries)
+                       highest_level_completed=highest_level_completed,
+                       level_tries=level_tries,
+                       level_id=level_id) 
 
 @app.route('/game_state', methods=['GET'])
 @login_required
@@ -780,6 +789,46 @@ def move():
         'start_box': {'position': PLAYER_START_POS, 'symbol': start_box_symbol},
         'player_pos': session['player_pos']
     })
+
+@app.route('/level_leaderboard/<level_id>')
+@login_required
+def level_leaderboard(level_id):
+    # Check if level exists
+    level_config = next((level for level in LEVELS if level['id'] == level_id), None)
+    if not level_config:
+        return "Level not found", 404
+
+    # Query the top 100 users who have completed the level
+    # Sorted by number of tries, then earliest completion date
+    top_players = (db.session.query(User.username, UserLevelStats.tries, UserLevelStats.completion_date)
+                   .join(UserLevelStats, User.id == UserLevelStats.user_id)
+                   .filter(UserLevelStats.level_id == level_id, UserLevelStats.completed == True)
+                   .order_by(UserLevelStats.tries.asc(), UserLevelStats.completion_date.asc())
+                   .limit(100)
+                   .all())
+
+    return render_template('level_leaderboard.html', level_id=level_id, top_players=top_players)
+
+@app.route('/overall_leaderboard')
+@login_required
+def overall_leaderboard():
+    # Determine level order
+    level_indices = {level['id']: idx for idx, level in enumerate(LEVELS)}
+
+    # Create a case expression to map levels to their indices
+    from sqlalchemy import case
+
+    level_order_case = case(
+        (User.highest_level_completed == level_id, index) for level_id, index in level_indices.items()
+    ).else_(-1)
+
+    top_users = (db.session.query(User.username, User.highest_level_completed, User.highest_level_completed_date)
+                 .filter(User.highest_level_completed != None)
+                 .order_by(level_order_case.desc(), User.highest_level_completed_date.asc())
+                 .limit(100)
+                 .all())
+
+    return render_template('overall_leaderboard.html', top_users=top_users)
 
 # --------------------- Flask Initialization ---------------------
 
