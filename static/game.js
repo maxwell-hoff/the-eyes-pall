@@ -92,7 +92,7 @@ function handleMoveButton(move) {
     if (canMove(move)) {
         makeMove(move);
     } else {
-        displayMessage("🚫 You can't move further in that direction!");
+        displayMessage("You can't move further in that direction!");
     }
 }
 
