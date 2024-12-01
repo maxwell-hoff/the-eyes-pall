@@ -817,10 +817,15 @@ def overall_leaderboard():
     # Determine level order
     level_indices = {level['id']: idx for idx, level in enumerate(LEVELS)}
     
-    # Create a case expression to map levels to their indices
+    # Create a list of (condition, result) pairs
+    whens = [
+        (User.highest_level_completed == level_id, index)
+        for level_id, index in level_indices.items()
+    ]
+
+    # Pass *whens as positional arguments
     level_order_case = case(
-        whens=level_indices,
-        value=User.highest_level_completed,
+        *whens,
         else_=-1
     )
 
@@ -831,7 +836,7 @@ def overall_leaderboard():
                  .all())
 
     return render_template('overall_leaderboard.html', top_users=top_users)
-
+    
 # --------------------- Flask Initialization ---------------------
 
 @app.route('/reset', methods=['POST'])
