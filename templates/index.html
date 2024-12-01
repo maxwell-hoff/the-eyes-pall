@@ -17,14 +17,10 @@
             box-sizing: border-box;
         }
         #game-container {
-            display: inline-block;
-            position: relative;
-            margin: 0 auto; /* Center horizontally */
-            border: 1px solid #ccc;
-            overflow: auto; /* Allow scrolling if necessary */
-            width: 100%; /* Allow container to use full width */
-            max-width: 100%;
-            max-height: calc(100vh - 220px); /* Subtract space for movement buttons and other elements */
+            width: 600px;
+            height: 600px;
+            overflow: auto;
+            margin: 0 auto; /* Center horizontally without adding top/bottom margin */
         }
         .grid-row {
             display: flex;
