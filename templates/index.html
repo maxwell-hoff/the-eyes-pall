@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>The Shadow of The Eye</title>
     <style>
         /* Existing styles */
@@ -24,15 +24,21 @@
         .grid-row {
             display: flex;
         }
-        .grid-cell {
-            width: 30px;
-            height: 30px;
-            border: 1px solid #ccc;
-            text-align: center;
-            line-height: 30px;
-            font-size: 14px;
-            font-weight: bold;
+        #game-container {
+            display: inline-block;
             position: relative;
+            width: 600px; /* Adjust as needed */
+            height: 600px; /* Adjust as needed */
+            margin: auto; /* Center the container */
+            border: 1px solid #ccc; /* Optional: Add a border for better visibility */
+            overflow: hidden; /* Prevent overflow */
+        }
+
+        .grid-cell {
+            width: 40px; /* Increase size for better readability */
+            height: 40px;
+            line-height: 40px;
+            font-size: 18px; /* Adjust font size */
         }
         .moving-piece {
             position: absolute;
@@ -65,9 +71,13 @@
             z-index: 1000; /* Ensure buttons stay on top */
         }
         #movement-buttons button {
-            width: 100%;
-            height: 60px; /* Adjust as needed */
-            font-size: 24px;
+            font-size: 18px; /* Adjust button text size */
+            height: 50px; /* Scale height */
+        }
+
+        #message {
+            font-size: 16px; /* Adjust message text size */
+            padding: 10px; /* Add padding for readability */
         }
         #left-right-buttons {
             display: flex;
@@ -75,27 +85,6 @@
         }
         #left-right-buttons button {
             flex: 1;
-        }
-        #game-container {
-            /* Adjust the max height if needed */
-            /* max-height: calc(100vh - 200px); */
-            /* overflow: auto; */
-        }
-        /* Add this section */
-        #message {
-            min-height: 15px; /* Reserve space for messages */
-            height: 15px; /* Optional: Set a fixed height */
-            display: flex; /* Enable Flexbox */
-            align-items: left; /* Vertically center content */
-            justify-content: left; /* Horizontally center content */
-            text-align: left; /* Center text if it wraps */
-            padding: 10px; /* Optional: Add padding for better aesthetics */
-            box-sizing: border-box; /* Include padding in height */
-            /* Optional: Add background or border for visibility */
-            /* background-color: #f8f8f8; */
-            /* border: 1px solid #ccc; */
-            /* Transition for smooth appearance/disappearance */
-            transition: all 0.3s ease;
         }
     </style>
 </head>
