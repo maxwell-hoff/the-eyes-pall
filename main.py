@@ -809,18 +809,20 @@ def level_leaderboard(level_id):
 
     return render_template('level_leaderboard.html', level_id=level_id, top_players=top_players)
 
+from sqlalchemy import case
+
 @app.route('/overall_leaderboard')
 @login_required
 def overall_leaderboard():
     # Determine level order
     level_indices = {level['id']: idx for idx, level in enumerate(LEVELS)}
-
+    
     # Create a case expression to map levels to their indices
-    from sqlalchemy import case
-
     level_order_case = case(
-        [(User.highest_level_completed == level_id, index) for level_id, index in level_indices.items()]
-    ).else_(-1)
+        whens=level_indices,
+        value=User.highest_level_completed,
+        else_=-1
+    )
 
     top_users = (db.session.query(User.username, User.highest_level_completed, User.highest_level_completed_date)
                  .filter(User.highest_level_completed != None)
