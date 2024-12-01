@@ -1,84 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta charset="UTF-8">
+    <!-- Allow user scaling -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>The Shadow of The Eye</title>
     <style>
-        /* Existing styles */
+        /* General Styles */
         body, html {
             font-family: Arial, sans-serif;
-            margin: 0; /* Add margin and padding reset */
+            margin: 0;
             padding: 0;
-            height: 100%; /* Set body height to 100% */
+            height: 100%;
         }
         #main-content {
             overflow: auto;
             padding-bottom: 220px; /* Make room for movement buttons */
             box-sizing: border-box;
         }
+        /* Game Container */
         #game-container {
-            width: 600px;
-            height: 600px;
-            overflow: auto;
-            margin: 0 auto; /* Center horizontally without adding top/bottom margin */
+            width: 600px; /* Fixed width */
+            height: 600px; /* Fixed height */
+            overflow: auto; /* Enable scrolling */
+            margin: 0 auto; /* Center horizontally */
+            border: 1px solid #ccc; /* Optional border */
+            position: relative;
         }
+        /* Grid Rows and Cells */
         .grid-row {
             display: flex;
         }
-        #game-container {
-            display: inline-block;
-            position: relative;
-            width: 600px; /* Adjust as needed */
-            height: 600px; /* Adjust as needed */
-            margin: auto; /* Center the container */
-            border: 1px solid #ccc; /* Optional: Add a border for better visibility */
-            overflow: hidden; /* Prevent overflow */
-        }
-
         .grid-cell {
-            width: 40px; /* Increase size for better readability */
+            width: 40px; /* Fixed size */
             height: 40px;
             line-height: 40px;
             font-size: 18px; /* Adjust font size */
+            border: 1px solid #ccc;
+            text-align: center;
+            font-weight: bold;
+            box-sizing: border-box;
         }
+        /* Moving Pieces */
         .moving-piece {
             position: absolute;
             z-index: 10;
-            width: 30px;
-            height: 30px;
-            line-height: 30px;
+            width: 40px; /* Match grid-cell size */
+            height: 40px;
+            line-height: 40px;
             text-align: center;
-            font-size: 14px;
+            font-size: 18px;
             font-weight: bold;
             color: black;
         }
+        /* Legend and Controls */
         .legend {
             margin-top: 20px;
         }
         #controls {
             margin-top: 20px;
         }
-
-        /* Movement buttons styles */
+        /* Movement Buttons */
         #movement-buttons {
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
-            background-color: #f9f9f9; /* Optional background */
+            background-color: #f9f9f9;
             display: flex;
             flex-direction: column;
             align-items: center;
-            z-index: 1000; /* Ensure buttons stay on top */
+            z-index: 1000;
         }
         #movement-buttons button {
-            font-size: 18px; /* Adjust button text size */
-            height: 50px; /* Scale height */
-        }
-
-        #message {
-            font-size: 16px; /* Adjust message text size */
-            padding: 10px; /* Add padding for readability */
+            font-size: 18px;
+            height: 50px;
         }
         #left-right-buttons {
             display: flex;
@@ -86,6 +82,11 @@
         }
         #left-right-buttons button {
             flex: 1;
+        }
+        /* Message */
+        #message {
+            font-size: 16px;
+            padding: 10px;
         }
     </style>
 </head>
@@ -105,13 +106,16 @@
             <button id="level-leaderboard-button">Level Leaderboard</button>
             <button id="back-button">Back to Level Selection</button>
         </div>
-        <div id="game-container"></div>
+        <!-- Game Container -->
+        <div id="game-container">
+            <!-- Grid content will be dynamically inserted here -->
+        </div>
         <div class="legend">
             <p>Legend: P=Player, X=End, T1/T2/T3/T4/T5=Drone Groups, *=Multiple Drones, .=Empty</p>
         </div>
     </div>
 
-    <!-- Movement buttons -->
+    <!-- Movement Buttons -->
     <div id="movement-buttons">
         <button id="move-up">Up</button>
         <div id="left-right-buttons">
