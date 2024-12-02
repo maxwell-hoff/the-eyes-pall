@@ -20,9 +20,9 @@
         }
         /* Game Container */
         #game-container {
-            width: 600px; /* Fixed width */
-            height: 600px; /* Fixed height */
-            overflow: auto; /* Enable scrolling */
+            /* width: 600px; Fixed width */
+            /* height: 600px; Fixed height */
+            /* overflow: auto; Enable scrolling */
             margin: 0 auto; /* Center horizontally */
             border: 1px solid #ccc; /* Optional border */
             position: relative;
@@ -92,9 +92,7 @@
 </head>
 <body>
     <div id="main-content">
-        <h1>The Shadow of The Eye</h1>
-        <p>Use 'w', 'a', 's', and 'd' to move. Press 'Enter' to skip a turn. Mission objective: reach 'X'.</p>
-
+        <!-- <h1>The Shadow of The Eye</h1> -->
         <div id="user-stats">
             <p id="total-tries">Total Casualties: {{ total_tries }}</p>
             <p id="level-tries">Casualties for This Level: {{ level_tries }}</p>
@@ -110,6 +108,7 @@
         <div id="game-container">
             <!-- Grid content will be dynamically inserted here -->
         </div>
+        <p>Use 'w', 'a', 's', and 'd' to move. Press 'Enter' to skip a turn. Mission objective: reach 'X'.</p>
         <div class="legend">
             <p>Legend: P=Player, X=End, T1/T2/T3/T4/T5=Drone Groups, *=Multiple Drones, .=Empty</p>
         </div>
