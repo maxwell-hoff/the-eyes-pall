@@ -167,3 +167,5 @@ flask_session/
 
 .env
 *.db
+
+modeled_assets/
