@@ -1,0 +1,53 @@
+board:
+  width: 10
+  height: 10
+  special_nodes:
+    - position: [2, 2]
+      special: stealth
+    - position: [5, 5]
+      special: stealth
+  impassable_nodes:
+    - [0, 0]
+    - [0, 9]
+    - [9, 0]
+    - [9, 9]
+    - [3, 4]
+    - [7, 2]
+    - [6, 6]
+    - [1, 8]
+pieces:
+  - type: Soldier
+    owner: Player1
+    position: [1, 1]
+    movement_range: 2
+    attack_capability: [Recon, AttackDrone]
+    attack_range: 1
+    visibility_range: 0
+  - type: Commander
+    owner: Player1
+    position: [1, 1]
+    movement_range: 1
+    attack_capability: []
+    attack_range: 0
+    visibility_range: 0
+  - type: Recon
+    owner: Player2
+    position: [8, 8]
+    movement_range: 1  # Moves slowly
+    attack_capability: []
+    attack_range: 0
+    visibility_range: 5  # Wide visibility range
+  - type: AttackDrone
+    owner: Player2
+    position: [8, 7]
+    movement_range: 3  # Moves quickly
+    attack_capability: [Soldier, Commander]
+    attack_range: 1
+    visibility_range: 0
+  - type: AttackDrone
+    owner: Player2
+    position: [8, 6]
+    movement_range: 3
+    attack_capability: [Soldier, Commander]
+    attack_range: 1
+    visibility_range: 0
