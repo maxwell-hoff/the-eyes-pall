@@ -18,7 +18,6 @@ class Piece:
         self.attack_range = attack_range
         self.visibility_range = visibility_range  # Add visibility range
 
-# Create the board as a grid graph
 def create_board(width, height, special_nodes, impassable_nodes):
     board = nx.grid_2d_graph(width, height)
     nx.set_node_attributes(board, None, 'special')
@@ -37,7 +36,6 @@ def create_board(width, height, special_nodes, impassable_nodes):
                 board.remove_edge(position, neighbor)
     return board
 
-# Create pieces
 def create_pieces(pieces_config):
     pieces = []
     for p in pieces_config:
@@ -66,7 +64,6 @@ pieces = create_pieces(config['pieces'])
 player1_had_commander = any(p.owner == 'Player1' and p.piece_type == 'Commander' for p in pieces)
 player2_had_commander = any(p.owner == 'Player2' and p.piece_type == 'Commander' for p in pieces)
 
-# Count total Player1 pieces for Recon logic
 initial_player1_positions = {(p.position): p for p in pieces if p.owner == 'Player1'}
 total_player1_pieces = len(initial_player1_positions)
 
@@ -81,10 +78,8 @@ def log_move(action_str):
 
 def move_piece(piece, target_position):
     if not board.nodes[target_position].get('passable', True):
-        print(f"Cannot move to impassable square {target_position}")
         return False
     if is_position_occupied(target_position):
-        print(f"Cannot move to occupied square {target_position}")
         return False
     try:
         path = nx.shortest_path(board, piece.position, target_position)
@@ -94,10 +89,8 @@ def move_piece(piece, target_position):
             log_move(f"{piece.owner}'s {piece.piece_type} moved from {old_pos} to {target_position}")
             return True
         else:
-            print(f"{piece.piece_type} cannot move that far.")
             return False
     except nx.NetworkXNoPath:
-        print(f"No path between {piece.position} and {target_position}")
         return False
 
 def get_positions_within_range(position, max_range):
@@ -124,7 +117,6 @@ def resolve_attacks():
                 if (target_piece.owner != piece.owner and
                     target_piece.position in positions_in_attack_range and
                     target_piece.piece_type in piece.attack_capability):
-                    print(f"{piece.owner}'s {piece.piece_type} at {piece.position} attacks {target_piece.owner}'s {target_piece.piece_type} at {target_piece.position}")
                     log_move(f"{piece.owner}'s {piece.piece_type} attacks {target_piece.owner}'s {target_piece.piece_type} at {target_piece.position}")
                     pieces.remove(target_piece)
 
@@ -178,7 +170,6 @@ def draw_pieces():
         screen.blit(text, text_rect)
 
 def piece_at_mouse(mouse_pos):
-    # Convert mouse coordinates to board coordinates
     mx, my = mouse_pos
     if my < INFO_PANEL_HEIGHT:
         return None
@@ -191,21 +182,16 @@ def piece_at_mouse(mouse_pos):
     return None
 
 def draw_info(hovered_piece):
-    # Clear the info panel
     info_rect = pygame.Rect(0, 0, WINDOW_SIZE[0], INFO_PANEL_HEIGHT)
     pygame.draw.rect(screen, WHITE, info_rect)
 
     y_offset = 10
-
-    # Display current turn message if any
     if current_turn_message:
         msg_surface = font.render(current_turn_message, True, BLACK)
         screen.blit(msg_surface, (10, y_offset))
         y_offset += 30
 
-    # Show last 5 moves
     if moves_log:
-        # Title for move log
         log_title_surface = font.render("Last Moves:", True, BLACK)
         screen.blit(log_title_surface, (10, y_offset))
         y_offset += 20
@@ -214,7 +200,6 @@ def draw_info(hovered_piece):
             screen.blit(move_surface, (10, y_offset))
             y_offset += 20
 
-    # If hovered over a piece, show its info
     if hovered_piece is not None:
         y_offset += 10
         piece_info = (
@@ -224,7 +209,6 @@ def draw_info(hovered_piece):
             f"Attack Range: {hovered_piece.attack_range}\n"
             f"Attack Capability: {hovered_piece.attack_capability}"
         )
-        # Render multiline
         for line in piece_info.split("\n"):
             line_surf = font.render(line, True, BLACK)
             screen.blit(line_surf, (10, y_offset))
@@ -277,7 +261,6 @@ def get_user_move(piece):
             while moving:
                 hovered_piece = piece_at_mouse(pygame.mouse.get_pos())
                 draw_board()
-                # Highlight possible moves
                 for pos in possible_moves:
                     x, y = pos
                     rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE + INFO_PANEL_HEIGHT, CELL_SIZE, CELL_SIZE)
@@ -314,7 +297,6 @@ def get_user_move(piece):
                         hovered_piece = piece_at_mouse(pygame.mouse.get_pos())
                         draw_board()
                         draw_pieces()
-                        # Highlight attackable positions
                         for pos in attackable_positions:
                             x, y = pos
                             rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE + INFO_PANEL_HEIGHT, CELL_SIZE, CELL_SIZE)
@@ -334,146 +316,158 @@ def get_user_move(piece):
                                 if target_position in attackable_positions:
                                     target_piece = next((p for p in pieces if p.position == target_position and p.owner != piece.owner), None)
                                     if target_piece:
-                                        print(f"{piece.owner}'s {piece.piece_type} at {piece.position} attacks {target_piece.owner}'s {target_piece.piece_type} at {target_piece.position}")
                                         log_move(f"{piece.owner}'s {piece.piece_type} attacks {target_piece.owner}'s {target_piece.piece_type} at {target_piece.position}")
                                         pieces.remove(target_piece)
                                     attacking = False
                                     break
                     break  # Exit after attacking
                 else:
-                    print("No enemies in range to attack.")
                     break  # Exit if no attack possible
             else:
-                print("This piece cannot attack.")
                 break  # Exit if no attack possible
 
     current_turn_message = ""
 
-# Recon AI State
+# --- Recon AI State ---
+# Initially, Recon heads to the farthest corner of the board from its start position.
+# Corners: (0,0), (0, height-1), (width-1,0), (width-1,height-1)
+# We'll find which corner is farthest from the recon's initial position and set that as the initial target.
 recon_state = {
     'visited_positions': set(),
     'discovered_player1_positions': set(),
     'search_mode': 'explore',  # 'explore', 'search_area', 'monitor'
     'search_center': None,
-    'search_attempts': 0
+    'search_attempts': 0,
+    'initial_target_corner': None,
+    'initial_target_set': False
 }
 
+def get_recon_pieces():
+    return [p for p in pieces if p.owner == 'Player2' and p.piece_type == 'Recon']
+
+def get_attack_drones():
+    return [p for p in pieces if p.owner == 'Player2' and p.piece_type == 'AttackDrone']
+
+def init_recon_target(recon):
+    if recon_state['initial_target_set']:
+        return
+    corners = [(0,0), (0, GRID_HEIGHT-1), (GRID_WIDTH-1, 0), (GRID_WIDTH-1, GRID_HEIGHT-1)]
+    start = recon.position
+    # Find farthest corner
+    longest_dist = -1
+    farthest_corner = None
+    for c in corners:
+        try:
+            path = nx.shortest_path(board, start, c)
+            dist = len(path)-1
+            if dist > longest_dist:
+                longest_dist = dist
+                farthest_corner = c
+        except nx.NetworkXNoPath:
+            # If no path, ignore
+            continue
+    recon_state['initial_target_corner'] = farthest_corner
+    recon_state['initial_target_set'] = True
+
 def get_ai_move(piece):
-    if piece.piece_type == 'Recon':
-        # Recon logic:
-        # 1. If sees Player1 pieces, record them and switch to 'search_area' mode around them.
-        # 2. If in search_area mode and no new pieces found after some tries, revert to explore mode.
-        # 3. In explore mode, try to move to unexplored positions.
-        # 4. Once all Player1 pieces discovered, move to 'monitor' mode and hover around them.
+    if piece.owner == 'Player2' and piece.piece_type == 'Recon':
+        ai_recon_move(piece)
+    elif piece.owner == 'Player2' and piece.piece_type == 'AttackDrone':
+        ai_attack_drone_move(piece)
+    # Player2 may have other types, but not in this config
 
-        # Update discovered Player1 pieces if any are visible
-        positions_in_visibility = get_positions_within_range(piece.position, piece.visibility_range)
-        visible_player1 = [p for p in pieces if p.owner == 'Player1' and p.position in positions_in_visibility]
+def ai_recon_move(piece):
+    # Ensure initial target is set
+    init_recon_target(piece)
 
-        # Record newly discovered pieces
-        for vp in visible_player1:
-            recon_state['discovered_player1_positions'].add(vp.position)
+    # Player2 can't see Player1 unless in range of a recon or other piece
+    # Update discovered Player1 pieces if visible
+    positions_in_visibility = get_positions_within_range(piece.position, piece.visibility_range)
+    visible_player1 = [p for p in pieces if p.owner == 'Player1' and p.position in positions_in_visibility]
 
-        discovered_count = len(recon_state['discovered_player1_positions'])
+    # Record newly discovered pieces
+    for vp in visible_player1:
+        recon_state['discovered_player1_positions'].add(vp.position)
 
-        # Check if all Player1 pieces discovered
-        all_discovered = (discovered_count == total_player1_pieces)
+    discovered_count = len(recon_state['discovered_player1_positions'])
+    all_discovered = (discovered_count == total_player1_pieces)
 
-        # State transitions
-        if visible_player1 and not all_discovered:
-            # We have found at least one piece, let's search the area around it
-            if recon_state['search_mode'] != 'search_area':
-                # Set center to the position of a found piece
-                recon_state['search_center'] = visible_player1[0].position
-                recon_state['search_mode'] = 'search_area'
+    # State transitions
+    if visible_player1 and not all_discovered:
+        # We found a piece, go to search_area mode
+        if recon_state['search_mode'] != 'search_area':
+            recon_state['search_center'] = visible_player1[0].position
+            recon_state['search_mode'] = 'search_area'
+            recon_state['search_attempts'] = 0
+    elif all_discovered:
+        # All discovered, monitor
+        recon_state['search_mode'] = 'monitor'
+    else:
+        # No visible player1 pieces
+        if recon_state['search_mode'] == 'search_area':
+            recon_state['search_attempts'] += 1
+            if recon_state['search_attempts'] > 5:
+                recon_state['search_mode'] = 'explore'
+                recon_state['search_center'] = None
                 recon_state['search_attempts'] = 0
-        elif all_discovered:
-            # All discovered, move to monitor mode
-            recon_state['search_mode'] = 'monitor'
-        else:
-            # No one visible
-            if recon_state['search_mode'] == 'search_area':
-                # If we're searching the area but not finding anyone new after several attempts:
-                recon_state['search_attempts'] += 1
-                if recon_state['search_attempts'] > 5:
-                    # Give up and go back to exploring
-                    recon_state['search_mode'] = 'explore'
-                    recon_state['search_center'] = None
-                    recon_state['search_attempts'] = 0
 
-        # Behaviors
-        if recon_state['search_mode'] == 'monitor' and all_discovered:
-            # Monitor mode: bounce around discovered pieces
-            # Just pick one discovered piece and move around it to keep it in range
-            target_positions = list(recon_state['discovered_player1_positions'])
-            # Find a vantage point near one discovered piece
-            # We'll just pick a random discovered piece and stand within visibility_range of it
-            target = random.choice(target_positions)
-            # If already in range, maybe move a bit around it
-            if piece.position in get_positions_within_range(target, piece.visibility_range):
-                # Move randomly nearby
-                neighbors = list(board.neighbors(piece.position))
-                random.shuffle(neighbors)
-                for npos in neighbors:
-                    if board.nodes[npos].get('passable', True) and not is_position_occupied(npos):
-                        move_piece(piece, npos)
-                        break
-            else:
-                # Move closer to that discovered piece
-                move_towards(piece, target)
-        elif recon_state['search_mode'] == 'search_area' and recon_state['search_center'] is not None:
-            # Search around search_center
-            # Move to a nearby tile not visited yet to see if we can spot more player1 units
-            target = find_unvisited_near_center(recon_state['search_center'], piece)
-            if target:
-                move_towards(piece, target)
-            else:
-                # If no unvisited tiles near center, just move randomly nearby
-                random_move(piece)
+    # Behaviors
+    if recon_state['search_mode'] == 'monitor' and all_discovered:
+        # Monitor mode: stay around discovered pieces
+        target_positions = list(recon_state['discovered_player1_positions'])
+        target = random.choice(target_positions)
+        if piece.position in get_positions_within_range(target, piece.visibility_range):
+            random_move(piece)
         else:
-            # Explore mode
-            # Find an unvisited passable node
+            move_towards(piece, target)
+    elif recon_state['search_mode'] == 'search_area' and recon_state['search_center'] is not None:
+        target = find_unvisited_near_center(recon_state['search_center'], piece)
+        if target:
+            move_towards(piece, target)
+        else:
+            random_move(piece)
+    else:
+        # Explore mode
+        # Initially, head to the chosen far corner if not reached yet and if no pieces found
+        if recon_state['initial_target_corner'] and not recon_state['discovered_player1_positions']:
+            # Move towards that corner
+            move_towards(piece, recon_state['initial_target_corner'])
+            # If reached corner or can't move, just continue exploring
+            if piece.position == recon_state['initial_target_corner']:
+                # Once reached corner, continue normal exploration
+                recon_state['initial_target_corner'] = None
+        else:
+            # Normal exploration of unvisited passable nodes
             target = find_unvisited_passable_node(piece)
             if target:
                 move_towards(piece, target)
             else:
-                # If no unvisited found, just move randomly
                 random_move(piece)
 
-        # Mark current position as visited
-        recon_state['visited_positions'].add(piece.position)
+    recon_state['visited_positions'].add(piece.position)
 
+def ai_attack_drone_move(piece):
+    # Attack drones head straight to the seen Player1 pieces if any have been discovered
+    known_positions = recon_state['discovered_player1_positions']
+    if known_positions:
+        # Move towards the nearest known Player1 piece
+        target_positions = list(known_positions)
+        distances = []
+        for pos in target_positions:
+            try:
+                path = nx.shortest_path(board, piece.position, pos)
+                distances.append((len(path)-1, pos))
+            except nx.NetworkXNoPath:
+                continue
+        if distances:
+            distances.sort()
+            _, target_position = distances[0]
+            move_towards(piece, target_position)
     else:
-        # Attack drone logic: remain as before (unchanged)
-        # Check if any Player1 piece is visible by recon drones
-        recon_drones = [p for p in pieces if p.owner == 'Player2' and p.piece_type == 'Recon']
-        detected_positions = set()
-        for recon in recon_drones:
-            positions_in_visibility = get_positions_within_range(recon.position, recon.visibility_range)
-            for plp in pieces:
-                if plp.owner == 'Player1' and plp.position in positions_in_visibility:
-                    detected_positions.add(plp.position)
-        if detected_positions:
-            # Move towards the nearest detected Player1 piece
-            target_positions = list(detected_positions)
-            distances = []
-            for pos in target_positions:
-                try:
-                    path = nx.shortest_path(board, piece.position, pos)
-                    distances.append((len(path) - 1, pos))
-                except nx.NetworkXNoPath:
-                    continue
-            if distances:
-                distances.sort()
-                _, target_position = distances[0]
-                # Move towards the target
-                move_towards(piece, target_position)
-        else:
-            # Idle if no targets
-            pass
+        # If no known player positions, drone waits or roams randomly
+        random_move(piece)
 
 def move_towards(piece, target_position):
-    # Move piece towards target_position if possible
     try:
         path = nx.shortest_path(board, piece.position, target_position)
         if len(path) > 1:
@@ -481,11 +475,10 @@ def move_towards(piece, target_position):
             if board.nodes[next_position].get('passable', True) and not is_position_occupied(next_position):
                 move_piece(piece, next_position)
     except nx.NetworkXNoPath:
-        # No path, do nothing
+        # no path, do nothing
         pass
 
 def find_unvisited_passable_node(piece):
-    # Find a random passable node that is not visited yet
     all_positions = list(board.nodes())
     random.shuffle(all_positions)
     for pos in all_positions:
@@ -494,14 +487,12 @@ def find_unvisited_passable_node(piece):
     return None
 
 def find_unvisited_near_center(center, piece):
-    # Find a tile near 'center' that is not visited, within some range
-    # We'll use a BFS approach starting from center
     from collections import deque
     visited_local = set()
     q = deque([(center, 0)])
     while q:
         pos, dist = q.popleft()
-        if dist > piece.visibility_range * 2:  # arbitrary limit to not wander too far
+        if dist > piece.visibility_range * 2:
             continue
         if (board.nodes[pos].get('passable', True) and
             pos not in recon_state['visited_positions'] and pos != piece.position):
@@ -513,7 +504,6 @@ def find_unvisited_near_center(center, piece):
     return None
 
 def random_move(piece):
-    # Move the piece to a random adjacent passable and unoccupied node if possible
     neighbors = list(board.neighbors(piece.position))
     random.shuffle(neighbors)
     for npos in neighbors:
@@ -547,14 +537,12 @@ def game_loop():
                 draw_info(hovered_piece)
                 pygame.display.flip()
 
-                # Check victory conditions
                 if check_victory():
                     running = False
                     break
             if not running:
                 break
 
-        # After all moves, resolve attacks
         resolve_attacks()
 
         hovered_piece = piece_at_mouse(pygame.mouse.get_pos())
@@ -563,7 +551,6 @@ def game_loop():
         draw_info(hovered_piece)
         pygame.display.flip()
 
-        # Check victory after attacks
         if check_victory():
             running = False
 
