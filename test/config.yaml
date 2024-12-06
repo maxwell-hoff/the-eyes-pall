@@ -33,14 +33,14 @@ pieces:
   - type: Recon
     owner: Player2
     position: [8, 8]
-    movement_range: 1  # Moves slowly
+    movement_range: 5
     attack_capability: []
     attack_range: 0
-    visibility_range: 5  # Wide visibility range
+    visibility_range: 2
   - type: AttackDrone
     owner: Player2
     position: [8, 7]
-    movement_range: 3  # Moves quickly
+    movement_range: 3
     attack_capability: [Soldier, Commander]
     attack_range: 1
     visibility_range: 0
